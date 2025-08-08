@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { QrCode, Play, Pause, Square, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { generateQRCode } from '@/lib/webhook';
 
 interface QRCodeSession {
   id: string;
@@ -41,11 +42,6 @@ export const BulkQRManager = ({ onAccountConnected }: { onAccountConnected: (acc
       });
   };
 
-  const generateQRCode = async (name: string, phone: string): Promise<string> => {
-    // Simular geração de QR code
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return `qr_code_data_${Date.now()}_${Math.random()}`;
-  };
 
   const startBulkProcess = async () => {
     const accounts = parseAccountsText(accountsText);
@@ -62,15 +58,23 @@ export const BulkQRManager = ({ onAccountConnected }: { onAccountConnected: (acc
     // Criar sessões para a fila
     const sessions: QRCodeSession[] = [];
     for (const account of accounts) {
-      const qrCode = await generateQRCode(account.name, account.phone);
-      sessions.push({
-        id: `session_${Date.now()}_${Math.random()}`,
-        name: account.name,
-        phone: account.phone,
-        qrCode,
-        status: 'pending',
-        timestamp: new Date().toISOString()
-      });
+      const result = await generateQRCode(account.name, account.phone);
+      if (result.success && result.qrCode) {
+        sessions.push({
+          id: `session_${Date.now()}_${Math.random()}`,
+          name: account.name,
+          phone: account.phone,
+          qrCode: result.qrCode,
+          status: 'pending',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        toast({
+          title: "Erro ao gerar QR Code",
+          description: `Falha para ${account.name}: ${result.error || 'Erro desconhecido'}`,
+          variant: "destructive"
+        });
+      }
     }
 
     setQueuedSessions(sessions);
