@@ -10,6 +10,7 @@ import { ArrowLeft, Plus, Smartphone, Wifi, WifiOff, QrCode } from 'lucide-react
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { sendWebhookNotification, generateQRCode, WEBHOOK_ACTIONS } from '@/lib/webhook';
+import { BulkQRManager } from '@/components/accounts/BulkQRManager';
 
 interface WhatsAppAccount {
   id: string;
@@ -282,15 +283,16 @@ const Accounts = () => {
               </h1>
             </div>
             
-            <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-              <DialogTrigger asChild>
-                <Button 
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-cyber-green/20"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Conectar Nova Conta
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-4">
+              <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+                <DialogTrigger asChild>
+                  <Button 
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-cyber-green/20"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Conectar Nova Conta
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="sm:max-w-md bg-card/90 backdrop-blur-sm border-cyber-border">
                 <DialogHeader>
                   <DialogTitle className="text-cyber-green">Nova Conta WhatsApp</DialogTitle>
@@ -328,6 +330,7 @@ const Accounts = () => {
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
 
             <Dialog open={showQrCode} onOpenChange={setShowQrCode}>
               <DialogContent className="sm:max-w-md bg-card/90 backdrop-blur-sm border-cyber-border">
@@ -364,6 +367,11 @@ const Accounts = () => {
                 </div>
               </DialogContent>
             </Dialog>
+          </div>
+
+          {/* Bulk QR Manager */}
+          <div className="mb-8">
+            <BulkQRManager onAccountConnected={(account) => setAccounts(prev => [...prev, account])} />
           </div>
 
           {/* Accounts Grid */}

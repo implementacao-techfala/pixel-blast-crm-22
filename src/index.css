@@ -8,47 +8,47 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Light theme - Pastel colors */
-    --background: 220 30% 98%;
-    --foreground: 220 15% 15%;
+    /* Light theme - High contrast colors */
+    --background: 0 0% 100%;
+    --foreground: 220 20% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 15%;
+    --card-foreground: 220 20% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 15%;
+    --popover-foreground: 220 20% 10%;
 
-    --primary: 260 40% 75%;
+    --primary: 260 60% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 25% 92%;
-    --secondary-foreground: 220 15% 25%;
+    --secondary: 220 20% 85%;
+    --secondary-foreground: 220 20% 20%;
 
-    --muted: 220 25% 95%;
-    --muted-foreground: 220 15% 50%;
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 20% 40%;
 
-    --accent: 300 30% 85%;
-    --accent-foreground: 220 15% 25%;
+    --accent: 300 40% 70%;
+    --accent-foreground: 220 20% 10%;
 
-    --destructive: 0 60% 75%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 25% 85%;
-    --input: 220 25% 90%;
-    --ring: 260 40% 75%;
+    --border: 220 20% 80%;
+    --input: 220 15% 94%;
+    --ring: 260 60% 50%;
 
-    /* Pastel colors */
-    --cyber-purple: 280 40% 80%;
-    --cyber-violet: 270 35% 75%;
-    --cyber-magenta: 300 35% 85%;
-    --cyber-green: 150 35% 70%;
-    --cyber-blue: 200 40% 75%;
-    --cyber-teal: 180 35% 75%;
-    --cyber-surface: 220 30% 96%;
-    --cyber-border: 220 25% 85%;
+    /* High contrast colors */
+    --cyber-purple: 280 60% 60%;
+    --cyber-violet: 270 55% 55%;
+    --cyber-magenta: 300 55% 65%;
+    --cyber-green: 150 55% 45%;
+    --cyber-blue: 200 60% 50%;
+    --cyber-teal: 180 55% 50%;
+    --cyber-surface: 220 15% 97%;
+    --cyber-border: 220 20% 75%;
 
-    --warning: 45 85% 75%;
-    --warning-foreground: 45 15% 20%;
+    --warning: 45 90% 55%;
+    --warning-foreground: 45 20% 15%;
     
     /* Light gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--cyber-purple)), hsl(var(--cyber-magenta)));

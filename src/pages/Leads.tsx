@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { BackgroundGraph } from '@/components/ui/background-graph';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, Phone, Tag } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Phone, Tag, ChevronDown, ChevronUp, FolderOpen, Folder } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { VirtualizedList } from '@/components/optimized/VirtualizedList';
+import { LeadsPagination } from '@/components/leads/LeadsPagination';
+import { LeadsImportExport } from '@/components/leads/LeadsImportExport';
 
 interface WhatsAppInteraction {
   accountName: string;
@@ -77,16 +80,128 @@ const Leads = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTag, setFilterTag] = useState('all');
   const [filterAccount, setFilterAccount] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const [allLeads, setAllLeads] = useState(mockLeads);
+  const [selectedFolder, setSelectedFolder] = useState('all');
+  const [isExpanded, setIsExpanded] = useState(true);
 
-  const filteredLeads = mockLeads.filter(lead => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.phone.includes(searchTerm);
-    const matchesTag = filterTag === 'all' || lead.tags.includes(filterTag);
-    const matchesAccount = filterAccount === 'all' || 
-                          lead.whatsappInteractions.some(interaction => interaction.accountName === filterAccount);
-    
-    return matchesSearch && matchesTag && matchesAccount;
-  });
+  // Simular milhões de leads para demonstração
+  const [totalLeadsCount] = useState(5247891); // 5+ milhões
+
+  const filteredLeads = useMemo(() => {
+    let leads = allLeads.filter(lead => {
+      const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           lead.phone.includes(searchTerm);
+      const matchesTag = filterTag === 'all' || lead.tags.includes(filterTag);
+      const matchesAccount = filterAccount === 'all' || 
+                            lead.whatsappInteractions.some(interaction => interaction.accountName === filterAccount);
+      const matchesFolder = selectedFolder === 'all' || lead.tags.includes(selectedFolder);
+      
+      return matchesSearch && matchesTag && matchesAccount && matchesFolder;
+    });
+
+    // Paginação eficiente
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return leads.slice(startIndex, endIndex);
+  }, [allLeads, searchTerm, filterTag, filterAccount, selectedFolder, currentPage, itemsPerPage]);
+
+  const totalFilteredCount = useMemo(() => {
+    return allLeads.filter(lead => {
+      const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           lead.phone.includes(searchTerm);
+      const matchesTag = filterTag === 'all' || lead.tags.includes(filterTag);
+      const matchesAccount = filterAccount === 'all' || 
+                            lead.whatsappInteractions.some(interaction => interaction.accountName === filterAccount);
+      const matchesFolder = selectedFolder === 'all' || lead.tags.includes(selectedFolder);
+      
+      return matchesSearch && matchesTag && matchesAccount && matchesFolder;
+    }).length;
+  }, [allLeads, searchTerm, filterTag, filterAccount, selectedFolder]);
+
+  const folders = useMemo(() => {
+    const folderCounts: Record<string, number> = {};
+    allLeads.forEach(lead => {
+      lead.tags.forEach(tag => {
+        folderCounts[tag] = (folderCounts[tag] || 0) + 1;
+      });
+    });
+    return Object.entries(folderCounts).map(([name, count]) => ({ name, count }));
+  }, [allLeads]);
+
+  const handleImport = (newLeads: any[]) => {
+    setAllLeads(prev => [...prev, ...newLeads]);
+  };
+
+  const handleExport = () => {
+    // Lógica de exportação já implementada no componente
+  };
+
+  const renderLeadCard = (lead: Lead, index: number) => (
+    <Card key={lead.id} className="bg-card/80 backdrop-blur-sm border-cyber-border hover:border-cyber-green transition-all duration-300 hover:shadow-lg hover:shadow-cyber-green/10">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-lg text-foreground">{lead.name}</CardTitle>
+            <div className="flex items-center text-sm text-muted-foreground mt-1">
+              <Phone className="h-3 w-3 mr-1" />
+              {lead.phone}
+            </div>
+          </div>
+          <Badge className={getStatusColor(lead.status)}>
+            {lead.status === 'active' ? 'Ativo' : lead.status === 'inactive' ? 'Inativo' : 'Bloqueado'}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div>
+          <p className="text-sm text-muted-foreground mb-2">Interações WhatsApp:</p>
+          <div className="space-y-2">
+            {lead.whatsappInteractions.map((interaction, idx) => (
+              <div key={idx} className="p-3 bg-muted/30 rounded-lg border">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="text-sm font-medium text-primary">{interaction.accountName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {interaction.messageCount} mensagens • {interaction.attemptedContacts} tentativas
+                    </p>
+                  </div>
+                  <Badge className={getInteractionStatusColor(interaction.status)} variant="secondary">
+                    {getInteractionStatusText(interaction.status)}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Último contato: {new Date(interaction.lastContact).toLocaleDateString('pt-BR')}
+                </p>
+                {interaction.status === 'no_response' && (
+                  <p className="text-xs text-warning-foreground mt-1">
+                    ⚠️ {interaction.attemptedContacts - interaction.messageCount} mensagens sem resposta
+                  </p>
+                )}
+                {interaction.status === 'failed' && (
+                  <p className="text-xs text-destructive mt-1">
+                    ❌ {interaction.attemptedContacts - interaction.messageCount} tentativas falharam
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground mb-2">Tags:</p>
+          <div className="flex flex-wrap gap-1">
+            {lead.tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-xs bg-cyber-surface text-cyber-green border-cyber-border">
+                <Tag className="h-3 w-3 mr-1" />
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -140,129 +255,136 @@ const Leads = () => {
             </div>
           </div>
 
-          {/* Filters */}
-          <Card className="mb-6 bg-card/80 backdrop-blur-sm border-cyber-border">
-            <CardHeader>
-              <CardTitle className="flex items-center text-cyber-green">
-                <Filter className="h-5 w-5 mr-2" />
-                Filtros
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Buscar</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Nome ou telefone..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-muted/50 border-cyber-border focus:border-cyber-green"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tag</label>
-                  <Select value={filterTag} onValueChange={setFilterTag}>
-                    <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
-                      <SelectValue placeholder="Selecione uma tag" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as tags</SelectItem>
-                      <SelectItem value="cliente">Cliente</SelectItem>
-                      <SelectItem value="lead">Lead</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="interessado">Interessado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Conta WhatsApp</label>
-                  <Select value={filterAccount} onValueChange={setFilterAccount}>
-                    <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
-                      <SelectValue placeholder="Selecione uma conta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as contas</SelectItem>
-                      <SelectItem value="Conta Principal">Conta Principal</SelectItem>
-                      <SelectItem value="Vendas">Vendas</SelectItem>
-                      <SelectItem value="Suporte">Suporte</SelectItem>
-                      <SelectItem value="Marketing">Marketing</SelectItem>
-                      <SelectItem value="Comercial">Comercial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* Import/Export */}
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-cyber-blue hover:text-cyber-green"
+              >
+                {isExpanded ? <ChevronUp className="h-4 w-4 mr-2" /> : <ChevronDown className="h-4 w-4 mr-2" />}
+                {isExpanded ? 'Minimizar' : 'Expandir'} Filtros
+              </Button>
+              <div className="text-sm text-muted-foreground">
+                {totalFilteredCount.toLocaleString('pt-BR')} de {totalLeadsCount.toLocaleString('pt-BR')} registros
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <LeadsImportExport 
+              totalLeads={totalLeadsCount}
+              onImport={handleImport}
+              onExport={handleExport}
+            />
+          </div>
 
-          {/* Leads List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredLeads.map((lead) => (
-              <Card key={lead.id} className="bg-card/80 backdrop-blur-sm border-cyber-border hover:border-cyber-green transition-all duration-300 hover:shadow-lg hover:shadow-cyber-green/10">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg text-foreground">{lead.name}</CardTitle>
-                      <div className="flex items-center text-sm text-muted-foreground mt-1">
-                        <Phone className="h-3 w-3 mr-1" />
-                        {lead.phone}
-                      </div>
-                    </div>
-                    <Badge className={getStatusColor(lead.status)}>
-                      {lead.status === 'active' ? 'Ativo' : lead.status === 'inactive' ? 'Inativo' : 'Bloqueado'}
-                    </Badge>
+          {/* Filters */}
+          {isExpanded && (
+            <Card className="mb-6 bg-card/80 backdrop-blur-sm border-cyber-border">
+              <CardHeader>
+                <CardTitle className="flex items-center text-cyber-green">
+                  <Filter className="h-5 w-5 mr-2" />
+                  Filtros Avançados
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Folders */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Pastas (Tags)</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    <Button
+                      variant={selectedFolder === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSelectedFolder('all')}
+                      className="justify-start"
+                    >
+                      <FolderOpen className="h-3 w-3 mr-2" />
+                      Todas ({allLeads.length})
+                    </Button>
+                    {folders.map((folder) => (
+                      <Button
+                        key={folder.name}
+                        variant={selectedFolder === folder.name ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedFolder(folder.name)}
+                        className="justify-start"
+                      >
+                        <Folder className="h-3 w-3 mr-2" />
+                        {folder.name} ({folder.count})
+                      </Button>
+                    ))}
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Interações WhatsApp:</p>
-                    <div className="space-y-2">
-                      {lead.whatsappInteractions.map((interaction, index) => (
-                        <div key={index} className="p-3 bg-muted/30 rounded-lg border">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <p className="text-sm font-medium text-primary">{interaction.accountName}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {interaction.messageCount} mensagens • {interaction.attemptedContacts} tentativas
-                              </p>
-                            </div>
-                            <Badge className={getInteractionStatusColor(interaction.status)} variant="secondary">
-                              {getInteractionStatusText(interaction.status)}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Último contato: {new Date(interaction.lastContact).toLocaleDateString('pt-BR')}
-                          </p>
-                          {interaction.status === 'no_response' && (
-                            <p className="text-xs text-warning-foreground mt-1">
-                              ⚠️ {interaction.attemptedContacts - interaction.messageCount} mensagens sem resposta
-                            </p>
-                          )}
-                          {interaction.status === 'failed' && (
-                            <p className="text-xs text-destructive mt-1">
-                              ❌ {interaction.attemptedContacts - interaction.messageCount} tentativas falharam
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Tags:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {lead.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs bg-cyber-surface text-cyber-green border-cyber-border">
-                          <Tag className="h-3 w-3 mr-1" />
-                          {tag}
-                        </Badge>
-                      ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Buscar</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Nome ou telefone..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 bg-muted/50 border-cyber-border focus:border-cyber-green"
+                      />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Tag</label>
+                    <Select value={filterTag} onValueChange={setFilterTag}>
+                      <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
+                        <SelectValue placeholder="Selecione uma tag" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as tags</SelectItem>
+                        <SelectItem value="cliente">Cliente</SelectItem>
+                        <SelectItem value="lead">Lead</SelectItem>
+                        <SelectItem value="premium">Premium</SelectItem>
+                        <SelectItem value="interessado">Interessado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Conta WhatsApp</label>
+                    <Select value={filterAccount} onValueChange={setFilterAccount}>
+                      <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
+                        <SelectValue placeholder="Selecione uma conta" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as contas</SelectItem>
+                        <SelectItem value="Conta Principal">Conta Principal</SelectItem>
+                        <SelectItem value="Vendas">Vendas</SelectItem>
+                        <SelectItem value="Suporte">Suporte</SelectItem>
+                        <SelectItem value="Marketing">Marketing</SelectItem>
+                        <SelectItem value="Comercial">Comercial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Leads List - Virtualizado para performance */}
+          <div className="space-y-4">
+            <VirtualizedList
+              items={filteredLeads}
+              renderItem={renderLeadCard}
+              itemHeight={320}
+              containerHeight={600}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-card/30 backdrop-blur-sm border-cyber-border rounded-lg"
+            />
+
+            {/* Paginação */}
+            <LeadsPagination
+              currentPage={currentPage}
+              totalItems={totalFilteredCount}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={(newSize) => {
+                setItemsPerPage(newSize);
+                setCurrentPage(1);
+              }}
+            />
           </div>
 
           {filteredLeads.length === 0 && (
