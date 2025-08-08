@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Light theme - Pastel colors */
+    --background: 220 30% 98%;
+    --foreground: 220 15% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
+
+    --primary: 260 40% 75%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 25% 92%;
+    --secondary-foreground: 220 15% 25%;
+
+    --muted: 220 25% 95%;
+    --muted-foreground: 220 15% 50%;
+
+    --accent: 300 30% 85%;
+    --accent-foreground: 220 15% 25%;
+
+    --destructive: 0 60% 75%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 25% 85%;
+    --input: 220 25% 90%;
+    --ring: 260 40% 75%;
+
+    /* Pastel colors */
+    --cyber-purple: 280 40% 80%;
+    --cyber-violet: 270 35% 75%;
+    --cyber-magenta: 300 35% 85%;
+    --cyber-green: 150 35% 70%;
+    --cyber-blue: 200 40% 75%;
+    --cyber-teal: 180 35% 75%;
+    --cyber-surface: 220 30% 96%;
+    --cyber-border: 220 25% 85%;
+
+    --warning: 45 85% 75%;
+    --warning-foreground: 45 15% 20%;
+    
+    /* Light gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--cyber-purple)), hsl(var(--cyber-magenta)));
+    --gradient-surface: linear-gradient(180deg, hsl(var(--background)), hsl(var(--cyber-surface)));
+    --gradient-minimal: linear-gradient(135deg, hsl(220 30% 98%), hsl(220 25% 95%));
+    
+    /* Subtle shadows */
+    --shadow-soft: 0 2px 8px hsl(220 15% 70% / 0.1);
+    --shadow-medium: 0 4px 16px hsl(220 15% 70% / 0.15);
+    
+    /* Smooth transitions */
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark theme - Pastel colors */
+    --background: 240 15% 8%;
+    --foreground: 220 20% 85%;
+
+    --card: 240 20% 10%;
+    --card-foreground: 220 20% 85%;
+
+    --popover: 240 20% 12%;
+    --popover-foreground: 220 20% 85%;
+
+    --primary: 260 50% 70%;
+    --primary-foreground: 240 15% 8%;
+
+    --secondary: 240 25% 15%;
+    --secondary-foreground: 220 20% 85%;
+
+    --muted: 240 20% 12%;
+    --muted-foreground: 220 15% 60%;
+
+    --accent: 300 40% 75%;
+    --accent-foreground: 240 15% 8%;
+
+    --destructive: 0 70% 65%;
+    --destructive-foreground: 240 15% 8%;
+
+    --border: 240 25% 18%;
+    --input: 240 20% 15%;
+    --ring: 260 50% 70%;
+
+    /* Dark pastel colors */
+    --cyber-purple: 280 50% 75%;
+    --cyber-violet: 270 45% 70%;
+    --cyber-magenta: 300 45% 80%;
+    --cyber-green: 150 45% 65%;
+    --cyber-blue: 200 50% 70%;
+    --cyber-teal: 180 45% 70%;
+    --cyber-surface: 240 20% 10%;
+    --cyber-border: 240 25% 18%;
+
+    --warning: 45 75% 70%;
+    --warning-foreground: 240 15% 8%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
