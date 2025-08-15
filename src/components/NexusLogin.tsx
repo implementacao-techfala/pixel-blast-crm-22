@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { GlowCard } from '@/components/ui/glow-card';
@@ -8,37 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, EyeOff, Github, Twitter, Gamepad2 } from 'lucide-react';
 
-// Floating background text component
-const FloatingText = () => {
-  const words = [
-    'DIGITAL', 'SYSTEM', 'CYBER', 'MATRIX', 
-    'PROTOCOL', 'ACCESS', 'PORTAL', 'NETWORK', 'CODE',
-    'INTERFACE', 'CONNECTION', 'STREAM', 'DATA', 'CLOUD'
-  ];
-
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-5">
-      {words.map((word, index) => (
-        <div
-          key={index}
-          className="absolute text-cyber-purple font-bold text-8xl md:text-9xl animate-float-slow"
-          style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDelay: `${index * 0.5}s`,
-            animationDuration: `${8 + Math.random() * 4}s`,
-            transform: `rotate(${Math.random() * 20 - 10}deg)`,
-            filter: 'blur(3px)',
-          }}
-        >
-          {word}
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const NexusLogin = () => {
+  console.log('NexusLogin component rendering...'); // Debug log
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -71,30 +43,21 @@ const NexusLogin = () => {
   };
 
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-cyber-dark via-cyber-surface to-cyber-dark overflow-hidden">
-      {/* Floating background text */}
-      <FloatingText />
-      
-      {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-cyber-purple/5 via-transparent to-cyber-magenta/5 animate-pulse" />
-      
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       {/* Main content */}
-      <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
+      <div className="w-full max-w-md">
         <GlowCard 
           glowColor="purple" 
-          className="w-full max-w-md backdrop-blur-xl bg-cyber-surface/30 border border-cyber-border/30"
+          className="w-full backdrop-blur-xl bg-white/10 border border-white/20"
           customSize={true}
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-cyber-purple via-cyber-magenta to-cyber-violet bg-clip-text text-transparent mb-2 animate-glow-pulse">
+            <h1 className="text-4xl font-bold text-white mb-2">
               Login
             </h1>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-gray-300 text-sm">
               Acesse sua plataforma
-            </p>
-            <p className="text-cyber-purple/60 text-xs mt-1">
-              [Digite suas credenciais para continuar]
             </p>
           </div>
 
@@ -102,17 +65,15 @@ const NexusLogin = () => {
           <form onSubmit={handleLogin} className="space-y-6">
             {/* Email Input */}
             <div className="space-y-2">
-              <div className="relative">
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-cyber-surface/50 border-cyber-border/50 text-foreground placeholder:text-muted-foreground focus:border-cyber-purple focus:ring-cyber-purple/30 pl-4 h-12 backdrop-blur-sm"
-                  required
-                />
-              </div>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400/30 h-12"
+                required
+              />
             </div>
 
             {/* Password Input */}
@@ -124,13 +85,13 @@ const NexusLogin = () => {
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-cyber-surface/50 border-cyber-border/50 text-foreground placeholder:text-muted-foreground focus:border-cyber-purple focus:ring-cyber-purple/30 pl-4 pr-12 h-12 backdrop-blur-sm"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400/30 pr-12 h-12"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-cyber-purple transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-purple-400 transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -144,15 +105,15 @@ const NexusLogin = () => {
                   id="remember"
                   checked={rememberMe}
                   onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                  className="border-cyber-border data-[state=checked]:bg-cyber-purple data-[state=checked]:border-cyber-purple"
+                  className="border-white/20 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
                 />
-                <Label htmlFor="remember" className="text-muted-foreground cursor-pointer">
+                <Label htmlFor="remember" className="text-gray-300 cursor-pointer">
                   Remember me
                 </Label>
               </div>
               <button
                 type="button"
-                className="text-cyber-purple hover:text-cyber-magenta transition-colors"
+                className="text-purple-400 hover:text-purple-300 transition-colors"
                 onClick={() => toast({
                   title: "Reset link sent",
                   description: "Check your email for password reset instructions",
@@ -166,7 +127,7 @@ const NexusLogin = () => {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 bg-gradient-to-r from-cyber-purple to-cyber-magenta hover:from-cyber-magenta hover:to-cyber-purple text-primary-foreground font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-cyber-purple/30 transform hover:scale-105"
+              className="w-full h-12 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold transition-all duration-300 hover:scale-105"
             >
               {loading ? "Entrando..." : "Fazer Login"}
             </Button>
@@ -175,10 +136,10 @@ const NexusLogin = () => {
             <div className="space-y-4">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-cyber-border/30" />
+                  <span className="w-full border-t border-white/20" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-cyber-surface px-2 text-muted-foreground">quick access via</span>
+                  <span className="bg-slate-900 px-2 text-gray-400">quick access via</span>
                 </div>
               </div>
 
@@ -186,21 +147,21 @@ const NexusLogin = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  className="bg-cyber-surface/30 border-cyber-border/50 hover:bg-cyber-purple/10 hover:border-cyber-purple/50 transition-all duration-300"
+                  className="bg-white/10 border-white/20 hover:bg-purple-500/20 hover:border-purple-400 transition-all duration-300"
                 >
                   <Github className="h-4 w-4" />
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  className="bg-cyber-surface/30 border-cyber-border/50 hover:bg-cyber-purple/10 hover:border-cyber-purple/50 transition-all duration-300"
+                  className="bg-white/10 border-white/20 hover:bg-purple-500/20 hover:border-purple-400 transition-all duration-300"
                 >
                   <Twitter className="h-4 w-4" />
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  className="bg-cyber-surface/30 border-cyber-border/50 hover:bg-cyber-purple/10 hover:border-cyber-purple/50 transition-all duration-300"
+                  className="bg-white/10 border-white/20 hover:bg-purple-500/20 hover:border-purple-400 transition-all duration-300"
                 >
                   <Gamepad2 className="h-4 w-4" />
                 </Button>
@@ -209,10 +170,10 @@ const NexusLogin = () => {
 
             {/* Create Account */}
             <div className="text-center text-sm">
-              <span className="text-muted-foreground">Don't have an account? </span>
+              <span className="text-gray-300">Don't have an account? </span>
               <button
                 type="button"
-                className="text-cyber-purple hover:text-cyber-magenta font-medium transition-colors"
+                className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
                 onClick={() => toast({
                   title: "Registration",
                   description: "Account creation coming soon!",
@@ -226,7 +187,7 @@ const NexusLogin = () => {
       </div>
 
       {/* Footer */}
-      <div className="absolute bottom-4 left-0 right-0 text-center text-cyber-purple/40 text-xs z-20">
+      <div className="absolute bottom-4 left-0 right-0 text-center text-purple-400/60 text-xs">
         © 2025 Sistema de Gestão. Todos os direitos reservados.
       </div>
     </div>

@@ -1,8 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Users, MessageSquare, Shield } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, Shield, Phone, Tag } from 'lucide-react';
 import { AccountReputation } from './NumberValidationService';
 
 interface AccountReputationCardProps {
@@ -21,7 +20,7 @@ export const AccountReputationCard: React.FC<AccountReputationCardProps> = ({
       case 'excellent':
         return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'good':
-        return <TrendingUp className="h-5 w-5 text-blue-500" />;
+        return <CheckCircle className="h-5 w-5 text-blue-500" />;
       case 'fair':
         return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
       case 'poor':
@@ -61,6 +60,32 @@ export const AccountReputationCard: React.FC<AccountReputationCardProps> = ({
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'connected':
+        return 'bg-green-500/20 text-green-700 border-green-500/50';
+      case 'disconnected':
+        return 'bg-red-500/20 text-red-700 border-red-500/50';
+      case 'blocked':
+        return 'bg-orange-500/20 text-orange-700 border-orange-500/50';
+      default:
+        return 'bg-gray-500/20 text-gray-700 border-gray-500/50';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'connected':
+        return 'Conectada';
+      case 'disconnected':
+        return 'Desconectada';
+      case 'blocked':
+        return 'Bloqueada';
+      default:
+        return 'Desconhecido';
+    }
+  };
+
   const handleClick = () => {
     if (onSelect) {
       onSelect(reputation.accountId);
@@ -80,56 +105,41 @@ export const AccountReputationCard: React.FC<AccountReputationCardProps> = ({
             {getReputationIcon(reputation.reputation)}
             {reputation.accountName}
           </CardTitle>
-          <Badge className={getReputationColor(reputation.reputation)}>
-            {getReputationText(reputation.reputation)}
-          </Badge>
+          <div className="flex gap-2">
+            <Badge className={getReputationColor(reputation.reputation)}>
+              {getReputationText(reputation.reputation)}
+            </Badge>
+            <Badge className={getStatusColor(reputation.status)}>
+              {getStatusText(reputation.status)}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <div className="text-center">
-            <div className="flex items-center justify-center mb-1">
-              <MessageSquare className="h-4 w-4 text-cyber-blue mr-1" />
-              <span className="font-medium">{reputation.responseRate}%</span>
-            </div>
-            <p className="text-xs text-muted-foreground">Taxa de Resposta</p>
-          </div>
-          
-          <div className="text-center">
-            <div className="flex items-center justify-center mb-1">
-              <TrendingUp className="h-4 w-4 text-cyber-green mr-1" />
-              <span className="font-medium">{reputation.deliveryRate}%</span>
-            </div>
-            <p className="text-xs text-muted-foreground">Taxa de Entrega</p>
-          </div>
-          
-          <div className="text-center">
-            <div className="flex items-center justify-center mb-1">
-              <Shield className="h-4 w-4 text-destructive mr-1" />
-              <span className="font-medium">{reputation.blockRate}%</span>
-            </div>
-            <p className="text-xs text-muted-foreground">Taxa de Bloqueio</p>
-          </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Phone className="h-4 w-4 text-cyber-blue" />
+          <span className="text-muted-foreground">{reputation.phone}</span>
         </div>
 
         <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Entrega</span>
-            <span>{reputation.deliveryRate}%</span>
+          <div className="flex items-center gap-2">
+            <Tag className="h-4 w-4 text-cyber-green" />
+            <span className="text-sm font-medium">Tags:</span>
           </div>
-          <Progress value={reputation.deliveryRate} className="h-2" />
+          <div className="flex flex-wrap gap-1">
+            {reputation.tags.map((tag) => (
+              <Badge key={tag} variant="outline" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+          </div>
         </div>
 
-        <div className="text-xs text-muted-foreground">
-          <div className="flex justify-between">
-            <span>Mensagens enviadas:</span>
-            <span className="font-medium">{reputation.totalMessagesSent.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Mensagens entregues:</span>
-            <span className="font-medium">{reputation.totalMessagesDelivered.toLocaleString()}</span>
-          </div>
+        <div className="bg-muted/30 p-3 rounded-lg">
+          <p className="text-xs text-muted-foreground text-center">
+            📊 Estatísticas detalhadas em breve
+          </p>
         </div>
 
         {reputation.reputation === 'poor' && (

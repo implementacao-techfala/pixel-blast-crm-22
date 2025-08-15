@@ -5,11 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, Phone, Tag, ChevronDown, ChevronUp, FolderOpen, Folder } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Phone, Tag, ChevronDown, ChevronUp, FolderOpen, Folder, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { VirtualizedList } from '@/components/optimized/VirtualizedList';
 import { LeadsPagination } from '@/components/leads/LeadsPagination';
 import { LeadsImportExport } from '@/components/leads/LeadsImportExport';
+import { useTags } from '@/hooks/useTags';
 
 interface WhatsAppInteraction {
   accountName: string;
@@ -76,7 +77,23 @@ const mockLeads: Lead[] = [
 ];
 
 const Leads = () => {
+  const { 
+    tags, 
+    loading: tagsLoading, 
+    error: tagsError, 
+    retryCount,
+    refreshTags,
+    getStats,
+    testApiEndpoint
+  } = useTags();
   const navigate = useNavigate();
+  
+  // Debug logs com estatísticas
+  console.log('🔍 Leads component - tags:', tags);
+  console.log('🔍 Leads component - tagsLoading:', tagsLoading);
+  console.log('🔍 Leads component - tagsError:', tagsError);
+  console.log('🔍 Leads component - retryCount:', retryCount);
+  console.log('📊 Estatísticas das tags:', getStats());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTag, setFilterTag] = useState('all');
   const [filterAccount, setFilterAccount] = useState('all');
@@ -84,7 +101,7 @@ const Leads = () => {
   const [itemsPerPage, setItemsPerPage] = useState(100);
   const [allLeads, setAllLeads] = useState(mockLeads);
   const [selectedFolder, setSelectedFolder] = useState('all');
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded] = useState(true);
 
   // Simular milhões de leads para demonstração
   const [totalLeadsCount] = useState(5247891); // 5+ milhões
@@ -120,15 +137,57 @@ const Leads = () => {
     }).length;
   }, [allLeads, searchTerm, filterTag, filterAccount, selectedFolder]);
 
+  // Usar tags reais para as pastas em vez de dados mockados
   const folders = useMemo(() => {
-    const folderCounts: Record<string, number> = {};
-    allLeads.forEach(lead => {
-      lead.tags.forEach(tag => {
-        folderCounts[tag] = (folderCounts[tag] || 0) + 1;
-      });
+    console.log('🔄 Calculando folders com tags reais...');
+    
+    if (!Array.isArray(tags) || tags.length === 0) {
+      console.log('📭 Sem tags reais, usando fallback');
+      return [
+        { name: 'all', count: allLeads.length, label: 'Todas' }
+      ];
+    }
+    
+    // Criar pastas baseadas nas tags reais
+    const realTagFolders = tags.map(tag => ({
+      name: tag.nome,
+      count: 0, // Por enquanto 0, será implementado quando tivermos endpoint de contagem
+      label: tag.nome
+    }));
+    
+    console.log('✅ Pastas criadas com tags reais:', realTagFolders);
+    
+    return [
+      { name: 'all', count: allLeads.length, label: 'Todas' },
+      ...realTagFolders
+    ];
+  }, [tags, allLeads]);
+
+  // Usar tags reais para o filtro
+  const availableTags = useMemo(() => {
+    console.log('🔄 Calculando availableTags...');
+    console.log('📊 Tags recebidas:', tags);
+    console.log('🔍 Tipo de tags:', typeof tags);
+    console.log('🔍 É array?', Array.isArray(tags));
+    
+    if (!Array.isArray(tags)) {
+      console.warn('⚠️ Tags não é um array:', tags);
+      return [];
+    }
+    
+    if (tags.length === 0) {
+      console.log('📭 Array de tags está vazio');
+      return [];
+    }
+    
+    const tagNames = tags.map(tag => {
+      console.log('🏷️ Processando tag:', tag);
+      return tag.nome;
     });
-    return Object.entries(folderCounts).map(([name, count]) => ({ name, count }));
-  }, [allLeads]);
+    
+    console.log('✅ Tag names extraídos:', tagNames);
+    return tagNames;
+  }, [tags]);
 
   const handleImport = (newLeads: any[]) => {
     setAllLeads(prev => [...prev, ...newLeads]);
@@ -255,6 +314,87 @@ const Leads = () => {
             </div>
           </div>
 
+          {/* Card de Status das Tags */}
+          <Card className="mb-6 bg-card/80 backdrop-blur-sm border-cyber-border">
+            <CardHeader>
+              <CardTitle className="text-cyber-green flex items-center">
+                <Tag className="h-5 w-5 mr-2" />
+                Status das Tags
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-cyber-purple">
+                    {tagsLoading ? '...' : tags.length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Total de Tags</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-cyber-blue">
+                    {tagsLoading ? '...' : tags.filter(t => t.tipo === 'lead').length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Tags de Lead</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-cyber-green">
+                    {tagsLoading ? '...' : tags.filter(t => t.tipo === 'conta').length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Tags de Conta</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-500">
+                    {tagsLoading ? '...' : tags.filter(t => t.tipo === 'campanha').length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Tags de Campanha</div>
+                </div>
+              </div>
+              
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  {tagsLoading ? (
+                    <span className="flex items-center">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Carregando tags...
+                    </span>
+                  ) : tagsError ? (
+                    <span className="text-red-500">Erro: {tagsError}</span>
+                  ) : (
+                    <span className="text-green-500">
+                      ✅ Última atualização: {new Date().toLocaleTimeString('pt-BR')}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={refreshTags}
+                    disabled={tagsLoading}
+                    className="border-cyber-border hover:border-cyber-green"
+                  >
+                    {tagsLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      '🔄'
+                    )}
+                    Atualizar Tags
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={testApiEndpoint}
+                    className="border-cyber-border hover:border-cyber-green"
+                  >
+                    🧪 Testar API
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Import/Export */}
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
@@ -288,32 +428,58 @@ const Leads = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Folders */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Pastas (Tags)</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    <Button
-                      variant={selectedFolder === 'all' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedFolder('all')}
-                      className="justify-start"
-                    >
-                      <FolderOpen className="h-3 w-3 mr-2" />
-                      Todas ({allLeads.length})
-                    </Button>
-                    {folders.map((folder) => (
-                      <Button
-                        key={folder.name}
-                        variant={selectedFolder === folder.name ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setSelectedFolder(folder.name)}
-                        className="justify-start"
-                      >
-                        <Folder className="h-3 w-3 mr-2" />
-                        {folder.name} ({folder.count})
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+                                 <div className="space-y-2">
+                   <label className="text-sm font-medium">Pastas (Tags)</label>
+                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                     <Button
+                       variant={selectedFolder === 'all' ? 'default' : 'outline'}
+                       size="sm"
+                       onClick={() => setSelectedFolder('all')}
+                       className="justify-start"
+                     >
+                       <FolderOpen className="h-3 w-3 mr-2" />
+                       Todas ({allLeads.length})
+                     </Button>
+                     
+                     {tagsLoading ? (
+                       <div className="col-span-full flex items-center justify-center py-4">
+                         <Loader2 className="h-4 w-4 animate-spin text-cyber-purple mr-2" />
+                         <span className="text-sm text-muted-foreground">
+                           Carregando tags...
+                         </span>
+                       </div>
+                     ) : tagsError ? (
+                       <div className="col-span-full text-center py-4 space-y-2">
+                         <p className="text-xs text-red-500">Erro ao carregar tags</p>
+                         <Button 
+                           variant="outline" 
+                           size="sm" 
+                           onClick={refreshTags}
+                           className="text-xs"
+                         >
+                           🔄 Tentar novamente
+                         </Button>
+                       </div>
+                     ) : folders.length > 1 ? (
+                       folders.slice(1).map((folder) => (
+                         <Button
+                           key={folder.name}
+                           variant={selectedFolder === folder.name ? 'default' : 'outline'}
+                           size="sm"
+                           onClick={() => setSelectedFolder(folder.name)}
+                           className="justify-start"
+                         >
+                           <Folder className="h-3 w-3 mr-2" />
+                           {folder.label} ({folder.count})
+                         </Button>
+                       ))
+                     ) : (
+                       <div className="col-span-full text-center py-4">
+                         <p className="text-xs text-muted-foreground">Nenhuma tag disponível</p>
+                       </div>
+                     )}
+                   </div>
+                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
@@ -328,21 +494,58 @@ const Leads = () => {
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Tag</label>
-                    <Select value={filterTag} onValueChange={setFilterTag}>
-                      <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
-                        <SelectValue placeholder="Selecione uma tag" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas as tags</SelectItem>
-                        <SelectItem value="cliente">Cliente</SelectItem>
-                        <SelectItem value="lead">Lead</SelectItem>
-                        <SelectItem value="premium">Premium</SelectItem>
-                        <SelectItem value="interessado">Interessado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                                   <div className="space-y-2">
+                   <label className="text-sm font-medium">Tag</label>
+                   <Select value={filterTag} onValueChange={setFilterTag}>
+                     <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
+                       <SelectValue placeholder="Selecione uma tag" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="all">Todas as tags</SelectItem>
+                       {tagsLoading ? (
+                         <SelectItem value="loading" disabled>Carregando...</SelectItem>
+                       ) : tagsError ? (
+                         <SelectItem value="error" disabled>Erro ao carregar tags</SelectItem>
+                       ) : availableTags.length === 0 ? (
+                         <SelectItem value="empty" disabled>Nenhuma tag disponível</SelectItem>
+                       ) : (
+                         availableTags.map(tag => (
+                           <SelectItem key={tag} value={tag}>
+                             {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                           </SelectItem>
+                         ))
+                       )}
+                     </SelectContent>
+                   </Select>
+                                       {tagsError && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-red-500">Erro: {tagsError}</p>
+                        {retryCount > 0 && (
+                          <p className="text-xs text-orange-500">
+                            Tentativas: {retryCount + 1}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={refreshTags}
+                            className="text-xs h-6"
+                          >
+                            🔄 Refresh
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={testApiEndpoint}
+                            className="text-xs h-6"
+                          >
+                            🧪 Testar API
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                 </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Conta WhatsApp</label>
                     <Select value={filterAccount} onValueChange={setFilterAccount}>
@@ -394,6 +597,8 @@ const Leads = () => {
               </CardContent>
             </Card>
           )}
+
+
         </div>
       </div>
     </div>

@@ -41,7 +41,6 @@ export interface MediaSequence {
   id: string;
   name: string;
   items: MediaItem[];
-  isDefault: boolean;
 }
 
 interface MediaSequenceManagerProps {
@@ -84,7 +83,6 @@ export const MediaSequenceManager: React.FC<MediaSequenceManagerProps> = ({
       id: Date.now().toString(),
       name: `Sequência ${sequences.length + 1}`,
       items: [],
-      isDefault: sequences.length === 0
     };
     
     onSequencesChange([...sequences, newSequence]);

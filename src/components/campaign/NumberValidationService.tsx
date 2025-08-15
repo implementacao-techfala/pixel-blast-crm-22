@@ -14,11 +14,9 @@ export interface ContactValidation {
 export interface AccountReputation {
   accountId: string;
   accountName: string;
-  responseRate: number;
-  blockRate: number;
-  deliveryRate: number;
-  totalMessagesSent: number;
-  totalMessagesDelivered: number;
+  phone: string;
+  tags: string[];
+  status: 'connected' | 'disconnected' | 'blocked';
   reputation: 'excellent' | 'good' | 'fair' | 'poor';
   lastUpdated: Date;
 }
@@ -49,36 +47,109 @@ const mockAccountReputations: AccountReputation[] = [
   {
     accountId: '1',
     accountName: 'Conta Principal',
-    responseRate: 85.2,
-    blockRate: 2.1,
-    deliveryRate: 97.5,
-    totalMessagesSent: 1250,
-    totalMessagesDelivered: 1219,
+    phone: '+55 11 99999-9999',
+    tags: ['vendas', 'premium', 'principal'],
+    status: 'connected',
     reputation: 'excellent',
     lastUpdated: new Date()
   },
   {
     accountId: '2',
     accountName: 'Suporte',
-    responseRate: 72.3,
-    blockRate: 8.5,
-    deliveryRate: 89.2,
-    totalMessagesSent: 800,
-    totalMessagesDelivered: 714,
-    reputation: 'fair',
+    phone: '+55 11 88888-8888',
+    tags: ['suporte', 'atendimento'],
+    status: 'connected',
+    reputation: 'good',
     lastUpdated: new Date()
   },
   {
     accountId: '3',
     accountName: 'Vendas',
-    responseRate: 45.1,
-    blockRate: 15.2,
-    deliveryRate: 78.3,
-    totalMessagesSent: 500,
-    totalMessagesDelivered: 392,
-    reputation: 'poor',
+    phone: '+55 11 77777-7777',
+    tags: ['vendas', 'comercial'],
+    status: 'connected',
+    reputation: 'fair',
+    lastUpdated: new Date()
+  },
+  {
+    accountId: '4',
+    accountName: 'Marketing',
+    phone: '+55 11 66666-6666',
+    tags: ['marketing', 'promocional'],
+    status: 'connected',
+    reputation: 'excellent',
+    lastUpdated: new Date()
+  },
+  {
+    accountId: '5',
+    accountName: 'Atendimento',
+    phone: '+55 11 55555-5555',
+    tags: ['atendimento', 'cliente'],
+    status: 'connected',
+    reputation: 'good',
+    lastUpdated: new Date()
+  },
+  {
+    accountId: '6',
+    accountName: 'Comercial',
+    phone: '+55 11 44444-4444',
+    tags: ['vendas', 'comercial'],
+    status: 'connected',
+    reputation: 'excellent',
+    lastUpdated: new Date()
+  },
+  {
+    accountId: '7',
+    accountName: 'Suporte Técnico',
+    phone: '+55 11 33333-3333',
+    tags: ['suporte', 'tecnico'],
+    status: 'connected',
+    reputation: 'good',
+    lastUpdated: new Date()
+  },
+  {
+    accountId: '8',
+    accountName: 'Vendas Premium',
+    phone: '+55 11 22222-2222',
+    tags: ['vendas', 'premium', 'vip'],
+    status: 'connected',
+    reputation: 'excellent',
+    lastUpdated: new Date()
+  },
+  {
+    accountId: '9',
+    accountName: 'Atendimento VIP',
+    phone: '+55 11 11111-1111',
+    tags: ['atendimento', 'vip', 'premium'],
+    status: 'connected',
+    reputation: 'excellent',
+    lastUpdated: new Date()
+  },
+  {
+    accountId: '10',
+    accountName: 'Marketing Digital',
+    phone: '+55 11 00000-0000',
+    tags: ['marketing', 'digital', 'online'],
+    status: 'connected',
+    reputation: 'good',
     lastUpdated: new Date()
   }
+];
+
+// Mock account tags for filtering
+export const ACCOUNT_TAGS = [
+  'vendas',
+  'suporte', 
+  'atendimento',
+  'marketing',
+  'comercial',
+  'tecnico',
+  'premium',
+  'vip',
+  'digital',
+  'online',
+  'cliente',
+  'promocional'
 ];
 
 export class NumberValidationService {
@@ -147,6 +218,14 @@ export class NumberValidationService {
 
   static getAllAccountReputations(): AccountReputation[] {
     return mockAccountReputations;
+  }
+
+  static getAccountReputationsByTag(tag: string): AccountReputation[] {
+    return mockAccountReputations.filter(acc => acc.tags.includes(tag));
+  }
+
+  static getAccountTags(): string[] {
+    return ACCOUNT_TAGS;
   }
 
   static updateContactStatus(phone: string, status: 'delivered' | 'failed' | 'blocked'): void {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BackgroundGraph } from '@/components/ui/background-graph';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Plus, Send, Calendar, Clock, Image, Video, FileText, Mic, File, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Send, Calendar, Clock, Image, Video, FileText, Mic, File, Trash2, ChevronUp, ChevronDown, Tag, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { useTags } from '@/hooks/useTags';
 
 interface Campaign {
   id: string;
@@ -55,7 +56,6 @@ const mockCampaigns: Campaign[] = [
   }
 ];
 
-const mockTags = ['cliente', 'lead', 'premium', 'interessado', 'vip'];
 const mockAccounts = [
   { id: '1', name: 'Conta Principal', phone: '+55 11 99999-9999', status: 'connected' },
   { id: '2', name: 'Suporte', phone: '+55 11 88888-8888', status: 'connected' },
@@ -65,6 +65,7 @@ const mockAccounts = [
 const Campaigns = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { tags, loading: tagsLoading, error: tagsError, refreshTags, testApiEndpoint } = useTags();
   const [campaigns, setCampaigns] = useState(mockCampaigns);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   
@@ -76,6 +77,12 @@ const Campaigns = () => {
   const [excludedContacts, setExcludedContacts] = useState('');
   const [selectedAccount, setSelectedAccount] = useState('');
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+
+  // Refresh automático das tags quando a página é acessada
+  useEffect(() => {
+    console.log('🚀 Página de Campanhas carregada - Fazendo refresh automático das tags');
+    refreshTags();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -293,26 +300,78 @@ const Campaigns = () => {
 
                    {/* Target Selection */}
                    <div className="space-y-4">
-                     <Label>Público-alvo (Tags)</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {mockTags.map((tag) => (
-                        <div key={tag} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={tag}
-                            checked={selectedTags.includes(tag)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedTags([...selectedTags, tag]);
-                              } else {
-                                setSelectedTags(selectedTags.filter(t => t !== tag));
-                              }
-                            }}
-                          />
-                          <Label htmlFor={tag} className="text-sm">{tag}</Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                     <div className="flex items-center justify-between">
+                       <Label>Público-alvo (Tags)</Label>
+                       <div className="flex gap-2">
+                         <Button
+                           type="button"
+                           size="sm"
+                           variant="outline"
+                           onClick={refreshTags}
+                           disabled={tagsLoading}
+                           className="border-cyber-border hover:border-cyber-green text-xs"
+                         >
+                           {tagsLoading ? '⏳' : '🔄'} Refresh Tags
+                         </Button>
+                         <Button
+                           type="button"
+                           size="sm"
+                           variant="outline"
+                           onClick={testApiEndpoint}
+                           className="border-cyber-border hover:border-cyber-green text-xs"
+                         >
+                           🧪 Testar API
+                         </Button>
+                       </div>
+                     </div>
+                     
+                     {tagsLoading ? (
+                       <div className="text-center py-4">
+                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyber-green mx-auto mb-2"></div>
+                         <span className="text-sm text-muted-foreground">Carregando tags...</span>
+                       </div>
+                     ) : tagsError ? (
+                       <div className="text-center py-4 space-y-2">
+                         <p className="text-sm text-red-500">Erro ao carregar tags: {tagsError}</p>
+                         <Button 
+                           variant="outline" 
+                           size="sm" 
+                           onClick={refreshTags}
+                           className="text-xs"
+                         >
+                           🔄 Tentar novamente
+                         </Button>
+                       </div>
+                     ) : tags.length === 0 ? (
+                       <div className="text-center py-4">
+                         <p className="text-sm text-muted-foreground">Nenhuma tag disponível</p>
+                       </div>
+                     ) : (
+                       <div className="grid grid-cols-2 gap-2">
+                         {tags.map((tag) => (
+                           <div key={tag.id} className="flex items-center space-x-2">
+                             <Checkbox
+                               id={tag.nome}
+                               checked={selectedTags.includes(tag.nome)}
+                               onCheckedChange={(checked) => {
+                                 if (checked) {
+                                   setSelectedTags([...selectedTags, tag.nome]);
+                                 } else {
+                                   setSelectedTags(selectedTags.filter(t => t !== tag.nome));
+                                 }
+                               }}
+                             />
+                             <Label htmlFor={tag.nome} className="text-sm flex items-center gap-2">
+                               {tag.nome}
+                               <Badge variant="secondary" className="text-xs">
+                                 {tag.tipo}
+                               </Badge>
+                             </Label>
+                           </div>
+                         ))}
+                       </div>
+                     )}
+                   </div>
 
                   {/* Exclusions */}
                   <div>
@@ -416,181 +475,262 @@ const Campaigns = () => {
                                  <Trash2 className="h-3 w-3" />
                                </Button>
                              </div>
-                          </div>
-                        </CardHeader>
-                         <CardContent className="space-y-3">
-                           {item.type === 'text' ? (
-                             <Textarea
-                               value={item.content}
-                               onChange={(e) => updateMediaItem(item.id, e.target.value)}
-                               placeholder="Digite sua mensagem..."
-                               className="bg-muted/50 border-cyber-border focus:border-cyber-purple"
-                             />
-                           ) : (
-                             <Input
-                               type="file"
-                               onChange={(e) => {
-                                 const file = e.target.files?.[0];
-                                 if (file) updateMediaItem(item.id, file.name);
-                               }}
-                               className="bg-muted/50 border-cyber-border focus:border-cyber-purple"
-                               accept={
-                                 item.type === 'image' ? 'image/*' :
-                                 item.type === 'video' ? 'video/*' :
-                                 item.type === 'audio' ? 'audio/*' : '*/*'
-                               }
-                             />
-                           )}
-                           <div>
-                             <Label htmlFor={`delay-${item.id}`} className="text-xs">Delay (segundos)</Label>
-                             <Input
-                               id={`delay-${item.id}`}
-                               type="number"
-                               min="0"
-                               max="300"
-                               value={item.delay || 0}
-                               onChange={(e) => updateMediaDelay(item.id, parseInt(e.target.value) || 0)}
-                               className="bg-muted/50 border-cyber-border focus:border-cyber-purple"
-                               placeholder="0"
-                             />
                            </div>
-                         </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                         </CardHeader>
+                          <CardContent className="space-y-3">
+                            {item.type === 'text' ? (
+                              <Textarea
+                                value={item.content}
+                                onChange={(e) => updateMediaItem(item.id, e.target.value)}
+                                placeholder="Digite sua mensagem..."
+                                className="bg-muted/50 border-cyber-border focus:border-cyber-purple"
+                              />
+                            ) : (
+                              <Input
+                                type="file"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) updateMediaItem(item.id, file.name);
+                                }}
+                                className="bg-muted/50 border-cyber-border focus:border-cyber-purple"
+                                accept={
+                                  item.type === 'image' ? 'image/*' :
+                                  item.type === 'video' ? 'video/*' :
+                                  item.type === 'audio' ? 'audio/*' : '*/*'
+                                }
+                              />
+                            )}
+                            <div>
+                              <Label htmlFor={`delay-${item.id}`} className="text-xs">Delay (segundos)</Label>
+                              <Input
+                                id={`delay-${item.id}`}
+                                type="number"
+                                min="0"
+                                max="300"
+                                value={item.delay || 0}
+                                onChange={(e) => updateMediaDelay(item.id, parseInt(e.target.value) || 0)}
+                                className="bg-muted/50 border-cyber-border focus:border-cyber-purple"
+                                placeholder="0"
+                              />
+                            </div>
+                          </CardContent>
+                       </Card>
+                     ))}
+                   </div>
 
-                  <div className="flex justify-end space-x-3">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setShowCreateDialog(false)}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={handleCreateCampaign}
-                      className="bg-primary hover:bg-primary/90"
-                    >
-                      Criar Campanha
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+                   <div className="flex justify-end space-x-3">
+                     <Button
+                       type="button"
+                       variant="ghost"
+                       onClick={() => setShowCreateDialog(false)}
+                     >
+                       Cancelar
+                     </Button>
+                     <Button
+                       type="button"
+                       onClick={handleCreateCampaign}
+                       className="bg-primary hover:bg-primary/90"
+                     >
+                       Criar Campanha
+                     </Button>
+                   </div>
+                 </div>
+               </DialogContent>
+             </Dialog>
+           </div>
 
-          {/* Campaigns List */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {campaigns.map((campaign) => (
-              <Card key={campaign.id} className="bg-card/80 backdrop-blur-sm border-cyber-border hover:border-cyber-green transition-all duration-300 hover:shadow-lg hover:shadow-cyber-green/10">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg text-foreground">{campaign.name}</CardTitle>
-                      <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>{new Date(campaign.scheduledDate).toLocaleDateString('pt-BR')}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4" />
-                          <span>{campaign.scheduledTime}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Badge className={getStatusColor(campaign.status)}>
-                      {getStatusText(campaign.status)}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Público-alvo</p>
-                      <p className="font-medium text-cyber-green">{campaign.targetCount} contatos</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Enviados</p>
-                      <p className="font-medium text-cyber-blue">{campaign.sentCount} / {campaign.targetCount}</p>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Tipos de mídia:</p>
-                    <div className="flex space-x-2">
-                      {campaign.mediaTypes.map((type) => (
-                        <Badge key={type} variant="secondary" className="text-xs bg-cyber-surface text-cyber-green border-cyber-border">
-                          {getMediaIcon(type)}
-                          <span className="ml-1 capitalize">{type}</span>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+           {/* Card de Status das Tags */}
+           <Card className="mb-6 bg-card/80 backdrop-blur-sm border-cyber-border">
+             <CardHeader>
+               <CardTitle className="text-cyber-green flex items-center">
+                 <Tag className="h-5 w-5 mr-2" />
+                 Status das Tags
+               </CardTitle>
+             </CardHeader>
+             <CardContent>
+               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                 <div className="text-center">
+                   <div className="text-2xl font-bold text-cyber-purple">
+                     {tagsLoading ? '...' : tags.length}
+                   </div>
+                   <div className="text-sm text-muted-foreground">Total de Tags</div>
+                 </div>
+                 <div className="text-center">
+                   <div className="text-2xl font-bold text-cyber-blue">
+                     {tagsLoading ? '...' : tags.filter(t => t.tipo === 'lead').length}
+                   </div>
+                   <div className="text-sm text-muted-foreground">Tags de Lead</div>
+                 </div>
+                 <div className="text-center">
+                   <div className="text-2xl font-bold text-cyber-green">
+                     {tagsLoading ? '...' : tags.filter(t => t.tipo === 'conta').length}
+                   </div>
+                   <div className="text-sm text-muted-foreground">Tags de Conta</div>
+                 </div>
+                 <div className="text-center">
+                   <div className="text-2xl font-bold text-orange-500">
+                     {tagsLoading ? '...' : tags.filter(t => t.tipo === 'campanha').length}
+                   </div>
+                   <div className="text-sm text-muted-foreground">Tags de Campanha</div>
+                 </div>
+               </div>
+               
+               <div className="mt-4 flex items-center justify-between">
+                 <div className="text-sm text-muted-foreground">
+                   {tagsLoading ? (
+                     <span className="flex items-center">
+                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                       Carregando tags...
+                     </span>
+                   ) : tagsError ? (
+                     <span className="text-red-500">Erro: {tagsError}</span>
+                   ) : (
+                     <span className="text-green-500">
+                       ✅ Última atualização: {new Date().toLocaleTimeString('pt-BR')}
+                     </span>
+                   )}
+                 </div>
+                 
+                 <div className="flex gap-2">
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={refreshTags}
+                     disabled={tagsLoading}
+                     className="border-cyber-border hover:border-cyber-green"
+                   >
+                     {tagsLoading ? (
+                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                     ) : (
+                       '🔄'
+                     )}
+                     Atualizar Tags
+                   </Button>
+                   
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={testApiEndpoint}
+                     className="border-cyber-border hover:border-cyber-green"
+                   >
+                     🧪 Testar API
+                   </Button>
+                 </div>
+               </div>
+             </CardContent>
+           </Card>
 
-                  {campaign.status === 'scheduled' && (
-                    <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="flex-1"
-                        onClick={() => {
-                          setCampaigns(campaigns.map(c => 
-                            c.id === campaign.id ? { ...c, status: 'cancelled' as const } : c
-                          ));
-                          toast({
-                            title: "Campanha cancelada",
-                            description: "A campanha foi cancelada com sucesso",
-                          });
-                        }}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-primary hover:bg-primary/90"
-                        onClick={() => {
-                          setCampaigns(campaigns.map(c => 
-                            c.id === campaign.id ? { ...c, status: 'sending' as const } : c
-                          ));
-                          toast({
-                            title: "Campanha iniciada",
-                            description: "Os disparos foram iniciados",
-                          });
-                        }}
-                      >
-                        <Send className="h-4 w-4 mr-1" />
-                        Enviar Agora
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+           {/* Campaigns List */}
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+             {campaigns.map((campaign) => (
+               <Card key={campaign.id} className="bg-card/80 backdrop-blur-sm border-cyber-border hover:border-cyber-green transition-all duration-300 hover:shadow-lg hover:shadow-cyber-green/10">
+                 <CardHeader>
+                   <div className="flex items-start justify-between">
+                     <div>
+                       <CardTitle className="text-lg text-foreground">{campaign.name}</CardTitle>
+                       <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
+                         <div className="flex items-center space-x-1">
+                           <Calendar className="h-4 w-4" />
+                           <span>{new Date(campaign.scheduledDate).toLocaleDateString('pt-BR')}</span>
+                         </div>
+                         <div className="flex items-center space-x-1">
+                           <Clock className="h-4 w-4" />
+                           <span>{campaign.scheduledTime}</span>
+                         </div>
+                       </div>
+                     </div>
+                     <Badge className={getStatusColor(campaign.status)}>
+                       {getStatusText(campaign.status)}
+                     </Badge>
+                   </div>
+                 </CardHeader>
+                 <CardContent className="space-y-4">
+                   <div className="grid grid-cols-2 gap-4">
+                     <div>
+                       <p className="text-sm text-muted-foreground">Público-alvo</p>
+                       <p className="font-medium text-cyber-green">{campaign.targetCount} contatos</p>
+                     </div>
+                     <div>
+                       <p className="text-sm text-muted-foreground">Enviados</p>
+                       <p className="font-medium text-cyber-blue">{campaign.sentCount} / {campaign.targetCount}</p>
+                     </div>
+                   </div>
+                   
+                   <div>
+                     <p className="text-sm text-muted-foreground mb-2">Tipos de mídia:</p>
+                     <div className="flex space-x-2">
+                       {campaign.mediaTypes.map((type) => (
+                         <Badge key={type} variant="secondary" className="text-xs bg-cyber-surface text-cyber-green border-cyber-border">
+                           {getMediaIcon(type)}
+                           <span className="ml-1 capitalize">{type}</span>
+                         </Badge>
+                       ))}
+                     </div>
+                   </div>
 
-          {campaigns.length === 0 && (
-            <Card className="bg-card/80 backdrop-blur-sm border-cyber-border">
-              <CardContent className="text-center py-12">
-                <Send className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Nenhuma campanha criada</h3>
-                <p className="text-muted-foreground mb-4">
-                  Crie sua primeira campanha para começar a enviar mensagens
-                </p>
-                <Button 
-                  onClick={() => setShowCreateDialog(true)}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Criar Primeira Campanha
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+                   {campaign.status === 'scheduled' && (
+                     <div className="flex space-x-2">
+                       <Button
+                         size="sm"
+                         variant="destructive"
+                         className="flex-1"
+                         onClick={() => {
+                           setCampaigns(campaigns.map(c => 
+                             c.id === campaign.id ? { ...c, status: 'cancelled' as const } : c
+                           ));
+                           toast({
+                             title: "Campanha cancelada",
+                             description: "A campanha foi cancelada com sucesso",
+                           });
+                         }}
+                       >
+                         Cancelar
+                       </Button>
+                       <Button
+                         size="sm"
+                         className="flex-1 bg-primary hover:bg-primary/90"
+                         onClick={() => {
+                           setCampaigns(campaigns.map(c => 
+                             c.id === campaign.id ? { ...c, status: 'sending' as const } : c
+                           ));
+                           toast({
+                             title: "Campanha iniciada",
+                             description: "Os disparos foram iniciados",
+                           });
+                         }}
+                       >
+                         <Send className="h-4 w-4 mr-1" />
+                         Enviar Agora
+                       </Button>
+                     </div>
+                   )}
+                 </CardContent>
+               </Card>
+             ))}
+           </div>
+
+           {campaigns.length === 0 && (
+             <Card className="bg-card/80 backdrop-blur-sm border-cyber-border">
+               <CardContent className="text-center py-12">
+                 <Send className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                 <h3 className="text-lg font-semibold mb-2">Nenhuma campanha criada</h3>
+                 <p className="text-muted-foreground mb-4">
+                   Crie sua primeira campanha para começar a enviar mensagens
+                 </p>
+                 <Button 
+                   onClick={() => setShowCreateDialog(true)}
+                   className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                 >
+                   <Plus className="h-4 w-4 mr-2" />
+                   Criar Primeira Campanha
+                 </Button>
+               </CardContent>
+             </Card>
+           )}
+         </div>
+       </div>
+     </div>
+   );
+ };
 
 export default Campaigns;
