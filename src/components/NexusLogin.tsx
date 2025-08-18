@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { GlowCard } from '@/components/ui/glow-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,28 +19,79 @@ const NexusLogin = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login, authData } = useAuth();
+
+  // ✅ NOVO: Carregar dados salvos na inicialização
+  useEffect(() => {
+    if (authData.email && authData.rememberMe) {
+      setEmail(authData.email);
+      setRememberMe(authData.rememberMe);
+    }
+  }, [authData]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      if (email && password) {
+    try {
+      // ✅ NOVO: Validação com credenciais hardcode
+      console.log('🔐 Validando credenciais...');
+      
+      if (!email.trim() || !password.trim()) {
+        toast({
+          title: "Campos obrigatórios",
+          description: "Por favor, preencha email e senha",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // ✅ NOVO: Usar hook de autenticação
+      const success = await login(email, password, rememberMe);
+      
+      console.log('🔍 Resultado do login:', success);
+      console.log('🔍 Email usado:', email);
+      console.log('🔍 Senha usada:', password);
+      
+      if (success) {
+        console.log('✅ Login bem-sucedido, redirecionando...');
+        
         toast({
           title: "Acesso autorizado",
           description: "Bem-vindo à plataforma",
         });
-        navigate('/dashboard');
+        
+        // ✅ NOVO: Verificar se há uma rota de redirecionamento salva
+        const redirectPath = sessionStorage.getItem('redirectAfterLogin');
+        console.log('🔍 Rota de redirecionamento salva:', redirectPath);
+        
+        if (redirectPath) {
+          console.log('🔄 Redirecionando para:', redirectPath);
+          sessionStorage.removeItem('redirectAfterLogin');
+          navigate(redirectPath);
+        } else {
+          // ✅ NOVO: Redirecionar para dashboard padrão
+          console.log('🔄 Redirecionando para dashboard padrão');
+          navigate('/dashboard');
+        }
       } else {
+        console.log('❌ Credenciais inválidas');
         toast({
           title: "Acesso negado",
-          description: "Credenciais inválidas",
+          description: "Email ou senha incorretos",
           variant: "destructive",
         });
       }
+    } catch (error) {
+      console.error('❌ Erro durante login:', error);
+      toast({
+        title: "Erro no sistema",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -54,10 +106,10 @@ const NexusLogin = () => {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-white mb-2">
-              Login
+              Acesso ao Sistema
             </h1>
             <p className="text-gray-300 text-sm">
-              Acesse sua plataforma
+              Digite suas credenciais para continuar
             </p>
           </div>
 
@@ -68,7 +120,7 @@ const NexusLogin = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="Email address"
+                placeholder="Digite seu email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400/30 h-12"
@@ -82,7 +134,7 @@ const NexusLogin = () => {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  placeholder="Digite sua senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-400 focus:ring-purple-400/30 pr-12 h-12"
@@ -108,18 +160,18 @@ const NexusLogin = () => {
                   className="border-white/20 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
                 />
                 <Label htmlFor="remember" className="text-gray-300 cursor-pointer">
-                  Remember me
+                  Lembrar de mim
                 </Label>
               </div>
               <button
                 type="button"
                 className="text-purple-400 hover:text-purple-300 transition-colors"
                 onClick={() => toast({
-                  title: "Reset link sent",
-                  description: "Check your email for password reset instructions",
+                  title: "Link de redefinição enviado",
+                  description: "Verifique seu email para instruções de redefinição de senha",
                 })}
               >
-                Forgot password?
+                Esqueceu a senha?
               </button>
             </div>
 
@@ -134,19 +186,12 @@ const NexusLogin = () => {
 
             {/* ✅ REMOVIDO: Login social - não implementado */}
 
-            {/* Create Account */}
+            {/* ✅ MODIFICADO: Botão de cadastro desabilitado */}
             <div className="text-center text-sm">
-              <span className="text-gray-300">Don't have an account? </span>
-              <button
-                type="button"
-                className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
-                onClick={() => toast({
-                  title: "Registration",
-                  description: "Account creation coming soon!",
-                })}
-              >
-                Create Account
-              </button>
+              <span className="text-gray-300">Não tem uma conta? </span>
+              <span className="text-gray-500 italic">
+                Acesso restrito - entre em contato com o administrador
+              </span>
             </div>
           </form>
         </GlowCard>

@@ -1,0 +1,31 @@
+# ✅ CONFIGURAÇÃO: Arquivo de configuração do ngrok
+# Coloque este arquivo em: ~/.ngrok2/ngrok.yml (Linux/Mac) ou %USERPROFILE%\.ngrok2\ngrok.yml (Windows)
+
+version: "2"
+authtoken: "SEU_AUTH_TOKEN_AQUI"  # Substitua pelo seu token real
+
+tunnels:
+  # ✅ TUNEL PRINCIPAL: Para desenvolvimento
+  dev:
+    addr: 8080
+    proto: http
+    hostname: ""  # Deixe vazio para URL aleatória
+    inspect: true
+    log: stdout
+    
+  # ✅ TUNEL HTTPS: Para produção/testes
+  https:
+    addr: 8080
+    proto: http
+    hostname: ""  # Deixe vazio para URL aleatória
+    inspect: true
+    log: stdout
+    bind_tls: true  # Força HTTPS
+    
+  # ✅ TUNEL PERSONALIZADO: Com domínio específico (requer plano pago)
+  custom:
+    addr: 8080
+    proto: http
+    hostname: "seu-dominio.ngrok.io"  # Substitua pelo seu domínio
+    inspect: true
+    log: stdout

@@ -2,14 +2,14 @@ import { useState, useMemo } from 'react';
 import { BackgroundGraph } from '@/components/ui/background-graph';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Search, Filter, Phone, Tag, ChevronDown, ChevronUp, FolderOpen, Folder, Loader2, AlertTriangle, CheckCircle, XCircle, Calendar, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { VirtualizedList } from '@/components/optimized/VirtualizedList';
 import { LeadsPagination } from '@/components/leads/LeadsPagination';
-import { LeadsImportExport } from '@/components/leads/LeadsImportExport';
+import LeadsImportExport from '@/components/leads/LeadsImportExport';
 import { useTags } from '@/hooks/useTags';
 import { useLeads, Lead as ApiLead } from '@/hooks/useLeads';
 
@@ -80,7 +80,12 @@ const Leads = () => {
 
     // Aplicar filtro de pasta (tag)
     if (selectedFolder !== 'all') {
-      filtered = filterLeadsByTags([selectedFolder]);
+      if (selectedFolder === 'sem_tags') {
+        // ✅ NOVO: Filtrar leads sem tags
+        filtered = leads.filter(lead => !lead.id_tag || !lead.id_tag.trim());
+      } else {
+        filtered = filterLeadsByTags([selectedFolder]);
+      }
     }
 
     // Paginação eficiente
@@ -102,7 +107,11 @@ const Leads = () => {
     }
 
     if (selectedFolder !== 'all') {
-      filtered = filterLeadsByTags([selectedFolder]);
+      if (selectedFolder === 'sem_tags') {
+        filtered = leads.filter(lead => !lead.id_tag || !lead.id_tag.trim());
+      } else {
+        filtered = filterLeadsByTags([selectedFolder]);
+      }
     }
 
     return filtered.length;
@@ -129,10 +138,20 @@ const Leads = () => {
       };
     });
     
+    // ✅ NOVO: Adicionar pasta para leads sem tags
+    const leadsSemTags = leads.filter(lead => !lead.id_tag || !lead.id_tag.trim());
+    const semTagsFolder = {
+      name: 'sem_tags',
+      count: leadsSemTags.length,
+      label: 'Sem Tags'
+    };
+    
     console.log('✅ Pastas criadas com tags reais e contagem:', realTagFolders);
+    console.log('✅ Pasta para leads sem tags:', semTagsFolder);
     
     return [
       { name: 'all', count: leads.length, label: 'Todas' },
+      semTagsFolder,
       ...realTagFolders
     ];
   }, [tags, leads, filterLeadsByTags]);
@@ -355,11 +374,7 @@ const Leads = () => {
                 {totalFilteredCount.toLocaleString('pt-BR')} de {totalLeadsCount.toLocaleString('pt-BR')} registros
               </div>
             </div>
-            <LeadsImportExport 
-              totalLeads={totalLeadsCount}
-              onImport={handleImport}
-              onExport={handleExport}
-            />
+            <LeadsImportExport />
           </div>
 
           {/* Filters */}
@@ -370,65 +385,75 @@ const Leads = () => {
                   <Filter className="h-5 w-5 mr-2" />
                   Filtros Avançados
                 </CardTitle>
+                <CardDescription>
+                  Filtre e organize seus leads por diferentes critérios
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Folders */}
-                                 <div className="space-y-2">
-                   <label className="text-sm font-medium">Pastas (Tags)</label>
-                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                     <Button
-                       variant={selectedFolder === 'all' ? 'default' : 'outline'}
-                       size="sm"
-                       onClick={() => setSelectedFolder('all')}
-                       className="justify-start"
-                     >
-                       <FolderOpen className="h-3 w-3 mr-2" />
-                       Todas ({leads.length})
-                     </Button>
-                     
-                     {tagsLoading ? (
-                       <div className="col-span-full flex items-center justify-center py-4">
-                         <Loader2 className="h-4 w-4 animate-spin text-cyber-purple mr-2" />
-                         <span className="text-sm text-muted-foreground">
-                           Carregando tags...
-                         </span>
-                       </div>
-                     ) : tagsError ? (
-                       <div className="col-span-full text-center py-4 space-y-2">
-                         <p className="text-xs text-red-500">Erro ao carregar tags</p>
-                         <Button 
-                           variant="outline" 
-                           size="sm" 
-                           onClick={refreshTags}
-                           className="text-xs"
-                         >
-                           🔄 Tentar novamente
-                         </Button>
-                       </div>
-                     ) : folders.length > 1 ? (
-                       folders.slice(1).map((folder) => (
-                         <Button
-                           key={folder.name}
-                           variant={selectedFolder === folder.name ? 'default' : 'outline'}
-                           size="sm"
-                           onClick={() => setSelectedFolder(folder.name)}
-                           className="justify-start"
-                         >
-                           <Folder className="h-3 w-3 mr-2" />
-                           {folder.label} ({folder.count})
-                         </Button>
-                       ))
-                     ) : (
-                       <div className="col-span-full text-center py-4">
-                         <p className="text-xs text-muted-foreground">Nenhuma tag disponível</p>
-                       </div>
-                     )}
-                   </div>
-                 </div>
+              <CardContent className="space-y-6">
+                {/* Seção 1: Filtros por Tags/Pastas */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground">Organizar por Tags</label>
+                    <span className="text-xs text-muted-foreground">
+                      {folders.length - 1} tags disponíveis
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    <Button
+                      variant={selectedFolder === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSelectedFolder('all')}
+                      className="justify-start h-9"
+                    >
+                      <FolderOpen className="h-3 w-3 mr-2" />
+                      Todas ({leads.length})
+                    </Button>
+                    
+                    {tagsLoading ? (
+                      <div className="col-span-full flex items-center justify-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-cyber-purple mr-2" />
+                        <span className="text-sm text-muted-foreground">
+                          Carregando tags...
+                        </span>
+                      </div>
+                    ) : tagsError ? (
+                      <div className="col-span-full text-center py-4 space-y-2">
+                        <p className="text-xs text-red-500">Erro ao carregar tags</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={refreshTags}
+                          className="text-xs h-6"
+                        >
+                          🔄 Tentar novamente
+                        </Button>
+                      </div>
+                    ) : folders.length > 1 ? (
+                      folders.slice(1).map((folder) => (
+                        <Button
+                          key={folder.name}
+                          variant={selectedFolder === folder.name ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setSelectedFolder(folder.name)}
+                          className="justify-start h-9"
+                        >
+                          <Folder className="h-3 w-3 mr-2" />
+                          {folder.label} ({folder.count})
+                        </Button>
+                      ))
+                    ) : (
+                      <div className="col-span-full text-center py-4">
+                        <p className="text-xs text-muted-foreground">Nenhuma tag disponível</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
+                {/* Seção 2: Filtros de Busca e Seleção */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Campo de Busca */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Buscar</label>
+                    <label className="text-sm font-medium text-foreground">Buscar Leads</label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -439,74 +464,101 @@ const Leads = () => {
                       />
                     </div>
                   </div>
-                                   <div className="space-y-2">
-                   <label className="text-sm font-medium">Tag</label>
-                   <Select value={filterTag} onValueChange={setFilterTag}>
-                     <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
-                       <SelectValue placeholder="Selecione uma tag" />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="all">Todas as tags</SelectItem>
-                       {tagsLoading ? (
-                         <SelectItem value="loading" disabled>Carregando...</SelectItem>
-                       ) : tagsError ? (
-                         <SelectItem value="error" disabled>Erro ao carregar tags</SelectItem>
-                       ) : availableTags.length === 0 ? (
-                         <SelectItem value="empty" disabled>Nenhuma tag disponível</SelectItem>
-                       ) : (
-                         availableTags.map(tag => (
-                           <SelectItem key={tag} value={tag}>
-                             {tag.charAt(0).toUpperCase() + tag.slice(1)}
-                           </SelectItem>
-                         ))
-                       )}
-                     </SelectContent>
-                   </Select>
-                                       {tagsError && (
-                      <div className="space-y-1">
-                        <p className="text-xs text-red-500">Erro: {tagsError}</p>
-                        {tagsRetryCount > 0 && (
-                          <p className="text-xs text-orange-500">
-                            Tentativas: {tagsRetryCount + 1}
-                          </p>
+                  
+                  {/* Filtro por Tag Específica */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Filtrar por Tag</label>
+                    <Select value={filterTag} onValueChange={setFilterTag}>
+                      <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
+                        <SelectValue placeholder="Selecione uma tag" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as tags</SelectItem>
+                        {tagsLoading ? (
+                          <SelectItem value="loading" disabled>Carregando...</SelectItem>
+                        ) : tagsError ? (
+                          <SelectItem value="error" disabled>Erro ao carregar tags</SelectItem>
+                        ) : availableTags.length === 0 ? (
+                          <SelectItem value="empty" disabled>Nenhuma tag disponível</SelectItem>
+                        ) : (
+                          availableTags.map(tag => (
+                            <SelectItem key={tag} value={tag}>
+                              {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                            </SelectItem>
+                          ))
                         )}
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={refreshTags}
-                            className="text-xs h-6"
-                          >
-                            🔄 Refresh
-                          </Button>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Configuração de Paginação */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">Itens por Página</label>
+                    <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                      <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                        <SelectItem value="200">200</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
+                {/* Seção 3: Status e Erros */}
+                <div className="space-y-3">
+                  {/* Status das Tags */}
+                  {tagsError && (
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <p className="text-xs text-red-500 font-medium">Erro ao carregar tags</p>
+                          <p className="text-xs text-red-400">{tagsError}</p>
+                          {tagsRetryCount > 0 && (
+                            <p className="text-xs text-orange-500">
+                              Tentativas: {tagsRetryCount + 1}
+                            </p>
+                          )}
                         </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={refreshTags}
+                          className="text-xs h-7"
+                        >
+                          🔄 Refresh
+                        </Button>
                       </div>
-                    )}
-                    
-                    {/* ✅ NOVO: Status dos Leads */}
-                    {leadsError && (
-                      <div className="space-y-1">
-                        <p className="text-xs text-red-500">Erro nos Leads: {leadsError}</p>
-                        {leadsRetryCount > 0 && (
-                          <p className="text-xs text-orange-500">
-                            Tentativas: {leadsRetryCount + 1}
-                          </p>
-                        )}
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={refreshLeads}
-                            className="text-xs h-6"
-                          >
-                            🔄 Refresh Leads
-                          </Button>
+                    </div>
+                  )}
+                  
+                  {/* Status dos Leads */}
+                  {leadsError && (
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <p className="text-xs text-red-500 font-medium">Erro ao carregar leads</p>
+                          <p className="text-xs text-red-400">{leadsError}</p>
+                          {leadsRetryCount > 0 && (
+                            <p className="text-xs text-orange-500">
+                              Tentativas: {leadsRetryCount + 1}
+                            </p>
+                          )}
                         </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={refreshLeads}
+                          className="text-xs h-7"
+                        >
+                          🔄 Refresh Leads
+                        </Button>
                       </div>
-                    )}
-                 </div>
-
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

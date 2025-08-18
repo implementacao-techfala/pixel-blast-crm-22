@@ -1,11 +1,29 @@
 import { BackgroundGraph } from '@/components/ui/background-graph';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, MessageSquare, Send, Settings, Lock } from 'lucide-react';
+import { Users, MessageSquare, Send, Settings, Lock, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { logout, authData } = useAuth();
+  const { toast } = useToast();
+
+  // ✅ NOVO: Função para fazer logout
+  const handleLogout = () => {
+    console.log('🚪 Fazendo logout...');
+    
+    logout();
+    
+    toast({
+      title: "Logout realizado",
+      description: "Você foi desconectado com sucesso",
+    });
+    
+    navigate('/login');
+  };
 
   const menuItems = [
     {
@@ -55,6 +73,23 @@ const Dashboard = () => {
       <BackgroundGraph className="absolute inset-0 z-0" />
       
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
+        {/* ✅ NOVO: Header com informações do usuário e botão de logout */}
+        <div className="absolute top-4 right-4 flex items-center space-x-4">
+          <div className="text-right text-sm text-muted-foreground">
+            <p>Logado como:</p>
+            <p className="font-medium text-cyber-purple">{authData.email}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="border-cyber-border hover:border-cyber-red text-cyber-red hover:bg-cyber-red/10 transition-all duration-300"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
+        </div>
+
         <div className="text-center mb-8">
           <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-cyber-purple via-cyber-magenta to-cyber-violet bg-clip-text text-transparent animate-glow-pulse">
             Sistema de Gestão
@@ -106,14 +141,6 @@ const Dashboard = () => {
             );
           })}
         </div>
-
-        <Button
-          variant="ghost"
-          className="mt-8 text-cyber-purple hover:text-cyber-magenta hover:bg-cyber-surface/50 transition-all duration-300"
-          onClick={() => navigate('/login')}
-        >
-          Sair
-        </Button>
       </div>
     </div>
   );

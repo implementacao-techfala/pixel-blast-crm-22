@@ -8,7 +8,10 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ngrok": "ngrok http 8080",
+    "ngrok:https": "ngrok http 8080 --host-header=localhost:8080",
+    "tunnel": "npm run dev & ngrok http 8080"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

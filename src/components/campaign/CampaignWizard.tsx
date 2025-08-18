@@ -194,7 +194,7 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
       const noAccountsLoaded = !Array.isArray(accounts) || accounts.length === 0;
       if (noAccountsLoaded) {
         console.log('🚀 Etapa 3 (Contas) - carregando contas pois não há dados em memória');
-        refreshAccounts();
+      refreshAccounts();
       } else {
         console.log('✅ Etapa 3 (Contas) - contas já carregadas, não será feito refresh automático');
       }
@@ -1103,7 +1103,7 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
                 </div>
               </CardContent>
             </Card>
-
+            
             {/* Exibir mensagem de validação da step 2 */}
             {getValidationMessage() && (
               <Alert className="mt-2">

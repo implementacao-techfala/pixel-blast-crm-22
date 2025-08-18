@@ -188,9 +188,15 @@ export const useLeads = (): UseLeadsReturn => {
     if (selectedTags.length === 0) return leads;
     
     return leads.filter(lead => {
-      if (!lead.id_tag || !lead.id_tag.trim()) return false;
+      // ✅ CORRIGIDO: Se o lead não tem tags, incluir apenas se não houver tags selecionadas específicas
+      if (!lead.id_tag || !lead.id_tag.trim()) {
+        // Se não há tags selecionadas específicas, incluir leads sem tags
+        return selectedTags.length === 0;
+      }
       
       const leadTags = lead.id_tag.split(',').map(tag => tag.trim()).filter(tag => tag);
+      
+      // ✅ CORRIGIDO: Se o lead tem tags, verificar se alguma das tags selecionadas está presente
       return selectedTags.some(selectedTag => leadTags.includes(selectedTag));
     });
   }, [leads]);
