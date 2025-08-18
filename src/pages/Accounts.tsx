@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Plus, Smartphone, Wifi, WifiOff, QrCode } from 'lucide-react';
+import { ArrowLeft, Plus, Smartphone, Wifi, WifiOff, QrCode, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { sendWebhookNotification, generateQRCode, WEBHOOK_ACTIONS } from '@/lib/webhook';
@@ -28,50 +28,8 @@ interface WhatsAppAccount {
   };
 }
 
-const mockAccounts: WhatsAppAccount[] = [
-  {
-    id: '1',
-    name: 'Conta Principal',
-    phone: '+55 11 99999-1234',
-    status: 'connected',
-    lastActivity: '2024-01-15 14:30',
-    health: {
-      messagesDelivered: 892,
-      messagesRead: 734,
-      messagesFailed: 23,
-      noResponseCount: 158,
-      healthScore: 85
-    }
-  },
-  {
-    id: '2',
-    name: 'Vendas',
-    phone: '+55 11 98888-5678',
-    status: 'connected',
-    lastActivity: '2024-01-15 13:45',
-    health: {
-      messagesDelivered: 456,
-      messagesRead: 321,
-      messagesFailed: 12,
-      noResponseCount: 135,
-      healthScore: 78
-    }
-  },
-  {
-    id: '3',
-    name: 'Suporte',
-    phone: '+55 11 97777-9012',
-    status: 'disconnected',
-    lastActivity: '2024-01-14 16:20',
-    health: {
-      messagesDelivered: 234,
-      messagesRead: 198,
-      messagesFailed: 45,
-      noResponseCount: 36,
-      healthScore: 62
-    }
-  }
-];
+// ✅ NOVO: Array vazio - sem contas mockadas
+const mockAccounts: WhatsAppAccount[] = [];
 
 const Accounts = () => {
   const navigate = useNavigate();
@@ -79,6 +37,10 @@ const Accounts = () => {
   const [accounts, setAccounts] = useState(mockAccounts);
   const [showQrCode, setShowQrCode] = useState(false);
   const [qrCodeData, setQrCodeData] = useState('');
+  // ✅ NOVO: Estados para verificação de conexão
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'waiting' | 'checking' | 'connected' | 'failed'>('waiting');
+  const [connectionMessage, setConnectionMessage] = useState('Aguardando conexão...');
   const [showAddForm, setShowAddForm] = useState(false);
   const [accountName, setAccountName] = useState('');
   const [accountPhone, setAccountPhone] = useState('');
@@ -122,6 +84,99 @@ const Accounts = () => {
     }
   };
 
+  // ✅ NOVO: Função para verificar se a conta está conectada
+  const checkConnectionStatus = async () => {
+    try {
+      setIsCheckingConnection(true);
+      setConnectionStatus('checking');
+      setConnectionMessage('Verificando conexão...');
+      
+      console.log('🔄 Verificando status da conexão...');
+      console.log('📱 Número de telefone para verificação:', accountPhone);
+      
+      // ✅ CORRIGIDO: Endpoint correto da API
+      const response = await fetch('https://automatewebhook.techfala.com.br/webhook/gestor-de-grupos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          telefone: accountPhone,
+          nome_conta: accountName
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('📥 Resposta da verificação de conexão:', data);
+      
+      // ✅ NOVO: Processar resposta da API
+      if (data && data.connected === true) {
+        setConnectionStatus('connected');
+        setConnectionMessage('✅ Conta conectada com sucesso!');
+        
+        // Criar nova conta conectada
+        const newAccount: WhatsAppAccount = {
+          id: Date.now().toString(),
+          name: accountName,
+          phone: accountPhone,
+          status: 'connected',
+          lastActivity: new Date().toLocaleString('pt-BR'),
+          health: {
+            messagesDelivered: 0,
+            messagesRead: 0,
+            messagesFailed: 0,
+            noResponseCount: 0,
+            healthScore: 100
+          }
+        };
+        
+        setAccounts([...accounts, newAccount]);
+        setAccountName('');
+        setAccountPhone('');
+        
+        toast({
+          title: "Conta conectada com sucesso!",
+          description: "Sua nova conta WhatsApp está pronta para uso",
+        });
+        
+        // Fechar modal após 3 segundos
+        setTimeout(() => {
+          setShowQrCode(false);
+          setConnectionStatus('waiting');
+          setConnectionMessage('Aguardando conexão...');
+        }, 3000);
+        
+      } else {
+        setConnectionStatus('failed');
+        setConnectionMessage('❌ Conta ainda não conectada. Tente novamente.');
+        
+        toast({
+          title: "Conta não conectada",
+          description: "Escaneie o QR Code e tente verificar novamente",
+          variant: "destructive"
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro ao verificar conexão:', error);
+      setConnectionStatus('failed');
+      setConnectionMessage('❌ Erro ao verificar conexão. Tente novamente.');
+      
+      toast({
+        title: "Erro na verificação",
+        description: "Falha ao verificar status da conexão",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCheckingConnection(false);
+    }
+  };
+
   const handleAddAccount = async () => {
     if (!accountName.trim() || !accountPhone.trim()) {
       toast({
@@ -149,38 +204,16 @@ const Accounts = () => {
       setShowAddForm(false);
       setShowQrCode(true);
       
+      // ✅ NOVO: Resetar status de conexão
+      setConnectionStatus('waiting');
+      setConnectionMessage('Aguardando conexão...');
+      
       toast({
         title: "QR Code gerado!",
         description: "Escaneie o código com seu WhatsApp para conectar",
       });
 
-      // Simular conexão após 5 segundos (aguardando implementação real do webhook)
-      setTimeout(async () => {
-        const newAccount: WhatsAppAccount = {
-          id: Date.now().toString(),
-          name: accountName,
-          phone: accountPhone,
-          status: 'connected',
-          lastActivity: new Date().toLocaleString('pt-BR'),
-          health: {
-            messagesDelivered: 0,
-            messagesRead: 0,
-            messagesFailed: 0,
-            noResponseCount: 0,
-            healthScore: 100
-          }
-        };
-        
-        setAccounts([...accounts, newAccount]);
-        setShowQrCode(false);
-        setAccountName('');
-        setAccountPhone('');
-        
-        toast({
-          title: "Conta conectada com sucesso!",
-          description: "Sua nova conta WhatsApp está pronta para uso",
-        });
-      }, 5000);
+      // ✅ REMOVIDO: Simulação automática - agora é manual
     } catch (error) {
       console.error('Error generating QR code:', error);
       toast({
@@ -358,12 +391,75 @@ const Accounts = () => {
                     3. Toque em "Conectar um dispositivo"<br/>
                     4. Escaneie este QR Code
                   </p>
-                  <div className="flex space-x-2">
-                    <div className="w-2 h-2 bg-cyber-green rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-cyber-blue rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                    <div className="w-2 h-2 bg-cyber-teal rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                  
+                  {/* ✅ NOVO: Status da conexão com cores dinâmicas */}
+                  <div className={`flex space-x-2 ${connectionStatus === 'connected' ? 'text-green-500' : connectionStatus === 'failed' ? 'text-red-500' : 'text-cyber-blue'}`}>
+                    {connectionStatus === 'waiting' && (
+                      <>
+                        <div className="w-2 h-2 bg-cyber-green rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-cyber-blue rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-2 h-2 bg-cyber-teal rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                      </>
+                    )}
+                    {connectionStatus === 'checking' && (
+                      <>
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                      </>
+                    )}
+                    {connectionStatus === 'connected' && (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      </>
+                    )}
+                    {connectionStatus === 'failed' && (
+                      <>
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      </>
+                    )}
                   </div>
-                  <p className="text-xs text-cyber-blue">Aguardando conexão...</p>
+                  
+                  {/* ✅ NOVO: Mensagem de status dinâmica */}
+                  <p className={`text-xs ${connectionStatus === 'connected' ? 'text-green-500' : connectionStatus === 'failed' ? 'text-red-500' : 'text-cyber-blue'}`}>
+                    {connectionMessage}
+                  </p>
+                  
+                  {/* ✅ NOVO: Botão de verificação de conexão */}
+                  <Button 
+                    onClick={checkConnectionStatus}
+                    disabled={isCheckingConnection}
+                    className={`w-full transition-all duration-300 ${
+                      connectionStatus === 'connected' 
+                        ? 'bg-green-500 hover:bg-green-600' 
+                        : connectionStatus === 'failed'
+                        ? 'bg-red-500 hover:bg-red-600'
+                        : 'bg-cyber-blue hover:bg-cyber-blue/90'
+                    }`}
+                  >
+                    {isCheckingConnection ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Verificando...
+                      </>
+                    ) : connectionStatus === 'connected' ? (
+                      '✅ Conectado!'
+                    ) : connectionStatus === 'failed' ? (
+                      '🔄 Tentar Novamente'
+                    ) : (
+                      '🔍 Verificar Conexão'
+                    )}
+                  </Button>
+                  
+                  {/* ✅ NOVO: Instruções adicionais */}
+                  <div className="text-xs text-muted-foreground text-center bg-muted/30 p-3 rounded-lg">
+                    <p className="font-medium mb-1">💡 Dica:</p>
+                    <p>Após escanear o QR Code, clique em "Verificar Conexão" para confirmar se a conta foi conectada com sucesso.</p>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>

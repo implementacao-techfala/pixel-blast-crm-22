@@ -15,11 +15,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TimeValidation } from './TimeValidation';
 import { AccountReputationCard } from './AccountReputationCard';
-import { MediaSequenceManager, MediaSequence } from './MediaSequenceManager';
-import { NumberValidationService, useNumberValidation, ACCOUNT_TAGS } from './NumberValidationService';
-import { AccountsSelector } from './AccountsSelector';
+import { MediaSequenceManager, MediaSequence, MediaItem } from './MediaSequenceManager';
 import { useTags } from '@/hooks/useTags';
 import { useAccounts } from '@/hooks/useAccounts';
+import { SequenceManager } from './SequenceManager';
+import { useToast } from '@/hooks/use-toast';
 
 interface Campaign {
   id: string;
@@ -33,7 +33,8 @@ interface Campaign {
   sentCount: number;
   selectedAccounts: string[];
   selectedTags: string[];
-  excludedContacts: string;
+  // ✅ REMOVIDO: Exceções individuais - funcionalidade desabilitada
+  // ✅ REMOVIDO: Tags de leads para excluir - funcionalidade desabilitada
   sequences: MediaSequence[]; // Substitui mediaItems por sequences
   delayMin: number;
   delayMax: number;
@@ -41,17 +42,7 @@ interface Campaign {
   templateName?: string;
 }
 
-interface MediaItem {
-  id: string;
-  type: 'text' | 'image' | 'video' | 'audio' | 'file' | 'recorded_audio';
-  content: string;
-  order: number;
-  delay?: number;
-  variables?: string[];
-  file?: File;
-  audioBlob?: Blob;
-  alternatives?: MediaItem[];
-}
+// ✅ REMOVIDO: Interface MediaItem duplicada - agora importada do MediaSequenceManager
 
 interface Contact {
   id: string;
@@ -60,10 +51,7 @@ interface Contact {
   [key: string]: any; // Dynamic columns from imported spreadsheet
 }
 
-interface VariableWarning {
-  variable: string;
-  missingContacts: number;
-}
+// ✅ REMOVIDO: Interface de variáveis - funcionalidade desabilitada
 
 interface CampaignWizardProps {
   onSave: (campaign: Campaign) => void;
@@ -85,17 +73,17 @@ const DELAY_PRESETS = [
   { label: '300s (Ultra seguro)', value: 300 }
 ];
 
-// Mock available columns from imported spreadsheet
-const AVAILABLE_COLUMNS = ['nome', 'empresa', 'telefone', 'email', 'cargo', 'cidade', 'produto_interesse'];
+// ✅ REMOVIDO: Variáveis de personalização desabilitadas por enquanto
 
 export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWizardProps) => {
+  const { toast } = useToast();
+  
   const { 
     tags, 
     loading: tagsLoading, 
     error: tagsError, 
     retryCount,
     refreshTags,
-    testApiEndpoint,
     getStats 
   } = useTags();
   
@@ -104,7 +92,7 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
     loading: accountsLoading,
     error: accountsError,
     refreshAccounts,
-    testApiEndpoint: testAccountsApi,
+
     getStats: getAccountsStats
   } = useAccounts();
   
@@ -144,10 +132,15 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
   const [campaignName, setCampaignName] = useState('');
   const [schedules, setSchedules] = useState([{ date: '', time: '' }]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [excludedContacts, setExcludedContacts] = useState('');
+  // ✅ REMOVIDO: Estados de exceções - funcionalidade desabilitada
   const [sequences, setSequences] = useState<MediaSequence[]>([
-    { id: '1', name: 'Sequência Principal', items: [] }
+    {
+      id: '1',
+      name: 'Sequência Principal',
+      items: []
+    }
   ]);
+  const [activeSequenceIndex, setActiveSequenceIndex] = useState(0);
   const [delayMin, setDelayMin] = useState(60);
   const [delayMax, setDelayMax] = useState(180);
   const [delayAverage, setDelayAverage] = useState(120);
@@ -156,22 +149,19 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
-  const [variableWarnings, setVariableWarnings] = useState<VariableWarning[]>([]);
+  // ✅ REMOVIDO: Estado de variáveis - funcionalidade desabilitada
   
-  // Number validation
-  const { validateNumbers, checkNumbersForExclusion, isValidating } = useNumberValidation();
-
   // Configurações de paginação
   // const accountsPerPage = 10; // This line is now redundant as it's defined above
   
   // Filtrar contas baseado na busca e tags selecionadas
   const filteredAccounts = Array.isArray(accounts) 
     ? accounts.filter(account => {
-        // Filtro por busca
+        // ✅ CORRIGIDO: Filtro por busca - lidando com campos que podem ser strings ou números
         const matchesSearch = 
-          account.nome_conta.toLowerCase().includes(accountSearchQuery.toLowerCase()) ||
-          account.telefone.toString().includes(accountSearchQuery) ||
-          account.status.toLowerCase().includes(accountSearchQuery.toLowerCase());
+          String(account.nome_conta).toLowerCase().includes(accountSearchQuery.toLowerCase()) ||
+          String(account.telefone).includes(accountSearchQuery) ||
+          String(account.status).toLowerCase().includes(accountSearchQuery.toLowerCase());
         
         // Filtro por tags (se alguma tag estiver selecionada)
         const matchesTags = selectedAccountTags.length === 0 || 
@@ -184,25 +174,30 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
       })
     : [];
   
-  // Verificar se todas as contas estão selecionadas
+  // ✅ CORRIGIDO: Verificar se todas as contas estão selecionadas
   const areAllAccountsSelected = filteredAccounts.length > 0 && 
-    filteredAccounts.every(account => selectedAccounts.includes(account.nome_conta));
+    filteredAccounts.every(account => selectedAccounts.includes(String(account.nome_conta)));
   
-  // Função para selecionar/desselecionar todas as contas
+  // ✅ CORRIGIDO: Função para selecionar/desselecionar todas as contas
   const toggleAllAccounts = () => {
     if (areAllAccountsSelected) {
       setSelectedAccounts([]);
     } else {
-      const allAccountNames = filteredAccounts.map(account => account.nome_conta);
+      const allAccountNames = filteredAccounts.map(account => String(account.nome_conta));
       setSelectedAccounts(allAccountNames);
     }
   };
 
-  // Refresh automático das tags quando a etapa 3 (contas) for acessada
+  // Refresh de contas somente se necessário ao entrar na etapa 3 (evita resetar progresso)
   useEffect(() => {
     if (currentStep === 3) {
-      console.log('🚀 Etapa 3 (Contas) acessada - Fazendo refresh automático das contas de WhatsApp');
-      refreshAccounts();
+      const noAccountsLoaded = !Array.isArray(accounts) || accounts.length === 0;
+      if (noAccountsLoaded) {
+        console.log('🚀 Etapa 3 (Contas) - carregando contas pois não há dados em memória');
+        refreshAccounts();
+      } else {
+        console.log('✅ Etapa 3 (Contas) - contas já carregadas, não será feito refresh automático');
+      }
     }
   }, [currentStep]);
   
@@ -246,6 +241,9 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
         return null;
       case 2:
         if (selectedTags.length === 0) return 'Selecione pelo menos uma tag de lead para filtrar o público';
+        
+        // ✅ REMOVIDO: Validações de exceções - funcionalidade desabilitada
+        
         return null;
       case 3:
         if (selectedAccounts.length === 0) return 'Selecione pelo menos uma conta';
@@ -265,6 +263,9 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
           return 'Adicione pelo menos uma sequência com itens de mídia';
         }
         if (delayMin > delayMax) return 'Delay mínimo não pode ser maior que o máximo';
+        
+        // ✅ REMOVIDO: Validações finais de exceções - funcionalidade desabilitada
+        
     return null;
       default:
         return null;
@@ -293,6 +294,155 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
     setSchedules(updated);
   };
 
+  // ✅ NOVO: Validação de formato de telefone para exceções
+  const validatePhoneFormat = (phone: string): boolean => {
+    // Padrão: +55 (11) 99999-9999 ou +5511999999999
+    const phoneRegex = /^\+55\s?\(?[1-9]{2}\)?\s?[9]?[0-9]{4}-?[0-9]{4}$/;
+    return phoneRegex.test(phone.trim());
+  };
+
+  // ✅ NOVO: Formatar telefone automaticamente
+  const formatPhoneNumber = (phone: string): string => {
+    // Remove tudo exceto números
+    const numbers = phone.replace(/\D/g, '');
+    
+    // Se não tem DDI, adiciona +55
+    if (numbers.length === 11 && !phone.startsWith('+')) {
+      return `+55${numbers}`;
+    }
+    
+    // Se tem DDI mas não tem +
+    if (numbers.length === 13 && !phone.startsWith('+')) {
+      return `+${numbers}`;
+    }
+    
+    return phone;
+  };
+
+  // ✅ NOVO: Limites de tamanho para mídias (em MB)
+  const MEDIA_LIMITS = {
+    image: 5,      // 5MB para imagens
+    file: 10,      // 10MB para documentos
+    audio: 15,     // 15MB para áudios
+    video: 20      // 20MB para vídeos
+  };
+
+  // ✅ NOVO: Converter arquivo para Base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        // Remove o prefixo "data:image/jpeg;base64," para obter apenas o Base64
+        const base64Data = base64.split(',')[1];
+        resolve(base64Data);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // ✅ NOVO: Validar tamanho e tipo de arquivo
+  const validateMediaFile = (file: File, type: 'image' | 'file' | 'audio' | 'video'): { valid: boolean; error?: string } => {
+    const maxSizeMB = MEDIA_LIMITS[type];
+    const fileSizeMB = file.size / (1024 * 1024);
+    
+    if (fileSizeMB > maxSizeMB) {
+      return {
+        valid: false,
+        error: `Arquivo muito grande: ${fileSizeMB.toFixed(1)}MB. Limite: ${maxSizeMB}MB`
+      };
+    }
+    
+    // ✅ NOVO: Validação de tipo MIME
+    const allowedTypes = {
+      image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+      file: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
+      audio: ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4'],
+      video: ['video/mp4', 'video/avi', 'video/mov', 'video/wmv']
+    };
+    
+    if (!allowedTypes[type].includes(file.type)) {
+      return {
+        valid: false,
+        error: `Tipo de arquivo não suportado: ${file.type}. Tipos aceitos: ${allowedTypes[type].join(', ')}`
+      };
+    }
+    
+    return { valid: true };
+  };
+
+  // ✅ NOVO: Comprimir imagem se necessário (para reduzir tamanho)
+  const compressImage = async (file: File, maxWidth: number = 1920, quality: number = 0.8): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = document.createElement('img') as HTMLImageElement;
+      
+      img.onload = () => {
+        // Calcular novas dimensões mantendo proporção
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Desenhar imagem redimensionada
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Converter para Blob com qualidade reduzida
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            // Fallback: converter arquivo original para Blob
+            resolve(file);
+          }
+        }, file.type, quality);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  // ✅ NOVO: Processar arquivo de mídia e converter para Base64
+  const processMediaFile = async (file: File, type: 'image' | 'file' | 'audio' | 'video'): Promise<{
+    base64: string;
+    fileName: string;
+    fileSize: number;
+    compressedFile?: Blob;
+  }> => {
+    // Validar arquivo
+    const validation = validateMediaFile(file, type);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    // Converter para Base64
+    const base64 = await fileToBase64(file);
+    
+    // Comprimir se for imagem e estiver muito grande
+    let compressedFile: Blob | undefined;
+    if (type === 'image' && file.size > 2 * 1024 * 1024) { // > 2MB
+      try {
+        compressedFile = await compressImage(file);
+        console.log(`🖼️ Imagem comprimida: ${(file.size / 1024 / 1024).toFixed(1)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(1)}MB`);
+      } catch (error) {
+        console.warn('⚠️ Falha na compressão, usando arquivo original');
+      }
+    }
+
+    return {
+      base64,
+      fileName: file.name,
+      fileSize: file.size,
+      compressedFile
+    };
+  };
+
   const loadTemplate = (templateId: string) => {
     const template = templates.find(t => t.id === templateId);
     if (template) {
@@ -304,6 +454,7 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
       // setMaxLeads(template.maxLeads); // This state was removed
       setDelayMin(template.delayMin);
       setDelayMax(template.delayMax);
+      // ✅ REMOVIDO: Carregamento de exceções - funcionalidade desabilitada
     }
   };
 
@@ -354,87 +505,16 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
     }
   };
 
-  const addMediaItem = (type: MediaItem['type'], content: string, file?: File, audioBlob?: Blob) => {
-    const newItem: MediaItem = {
-      id: Date.now().toString(),
-      type,
-      content,
-      order: sequences[0].items.length + 1, // Add to the first sequence
-      file,
-      audioBlob,
-      variables: content.match(/\{\{([^}]+)\}\}/g)?.map(v => v.replace(/[{}]/g, '')) || []
-    };
-    
-    // Add to the current active sequence
-    const updatedSequences = [...sequences];
-    const currentSequence = updatedSequences[0]; // Always add to first sequence for now
-    
-    if (currentSequence) {
-      currentSequence.items.push(newItem);
-      setSequences(updatedSequences);
-    }
-    
-    // Clear form
-    // setMediaContent(''); // This state was removed
-    // setSelectedFile(null); // This state was removed
-    // setAudioBlob(null); // This state was removed
-    // setIsRecording(false); // This state was removed
-    // setRecordingDuration(0); // This state was removed
-    
-    // Check for variable warnings
-    setTimeout(checkVariableWarnings, 100);
-  };
+  // ✅ REMOVIDO: Funções antigas de gerenciamento de mídia
+  // Agora gerenciado pelo SequenceManager
 
-  const removeMediaItem = (id: string) => {
-    // This function is no longer needed as mediaItems are replaced by sequences
-    // setMediaItems(mediaItems.filter(item => item.id !== id));
-  };
-
-  const updateMediaItem = (id: string, updates: Partial<MediaItem>) => {
-    // This function is no longer needed as mediaItems are replaced by sequences
-    // setMediaItems(mediaItems.map(item => 
-    //   item.id === id ? { ...item, ...updates } : item
-    // ));
-  };
-
-  const checkVariableWarnings = () => {
-    const warnings: VariableWarning[] = [];
-    const totalContacts = selectedTags.length * 100;
-    
-    // Check all sequences for variable warnings
-    sequences.forEach(sequence => {
-      sequence.items.forEach(item => {
-      if (item.type === 'text' && item.content) {
-        const variables = item.content.match(/\{\{([^}]+)\}\}/g) || [];
-        variables.forEach(variable => {
-          const varName = variable.replace(/[{}]/g, '');
-          if (!AVAILABLE_COLUMNS.includes(varName)) {
-            const existing = warnings.find(w => w.variable === varName);
-            if (!existing) {
-              warnings.push({
-                variable: varName,
-                missingContacts: Math.floor(totalContacts * 0.2) // Simulate 20% missing
-              });
-            }
-          }
-        });
-      }
-      });
-    });
-    
-    setVariableWarnings(warnings);
-  };
+  // ✅ REMOVIDO: Verificação de variáveis - funcionalidade desabilitada
 
   const formatCampaignForRequest = (campaign: Campaign) => {
-    // Get account details including tags
-    const selectedAccountDetails = campaign.selectedAccounts.map(accountId => {
-      const account = NumberValidationService.getAccountReputation(accountId);
-      return {
-        id: accountId,
-        nome: account?.accountName || 'Conta Desconhecida',
-        telefone: account?.phone || '',
-        tags: account?.tags || []
-      };
+    // ✅ CORRIGIDO: Usar dados reais das contas em vez de mock
+    const selectedAccountIds = campaign.selectedAccounts.map(accountName => {
+      const account = accounts.find(acc => acc.nome_conta === accountName);
+      return account?.id.toString() || '0';
     });
 
     return {
@@ -442,28 +522,75 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
       data: campaign.schedules[0].date,
       horario: campaign.schedules[0].time,
       tags: campaign.selectedTags,
-      limite_leads: selectedTags.length * 100,
-      excecoes: campaign.excludedContacts ? campaign.excludedContacts.split(',').map(t => t.trim()) : [],
-      contas_selecionadas: selectedAccountDetails,
-      delay: {
-        delay_medio: Math.round((campaign.delayMin + campaign.delayMax) / 2),
-        variacao_min: campaign.delayMin,
-        variacao_max: campaign.delayMax
-      },
-      sequencias: campaign.sequences.map(sequence => ({
-        nome: sequence.name,
-        itens: sequence.items.map(item => ({
+      excecoes: [], // ✅ REMOVIDO: Exceções desabilitadas
+      excecoes_agrupadas_em_tags: [], // ✅ REMOVIDO: Exceções por tags desabilitadas
+      contas_selecionadas: selectedAccountIds, // ✅ CORRIGIDO: Array de IDs
+      delay: Math.round((campaign.delayMin + campaign.delayMax) / 2).toString(), // ✅ CORRIGIDO: String simples
+      configuracao_sequencia: campaign.sequences.map(sequence => ({
+        nome_sequencia: sequence.name,
+        itens: sequence.items.map(item => {
+          const mediaItem: any = {
+            tipo_de_mensagem: item.type,
+            tipo: item.type // ✅ NOVO: Campo 'tipo' para identificação
+          };
+          
+          // ✅ NOVO: Para mídias (imagem, vídeo, áudio, arquivo), usar Base64
+          if (['image', 'video', 'audio', 'file', 'recorded_audio'].includes(item.type)) {
+            if (item.base64) {
+              mediaItem.conteudo = item.base64; // ✅ CORRIGIDO: Usar Base64 em vez do nome
+              mediaItem.nome_arquivo = item.fileName || 'Arquivo sem nome';
+              mediaItem.tamanho_arquivo = item.fileSize || 0;
+              console.log(`✅ Mídia ${item.type} convertida para Base64:`, {
+                nome: item.fileName,
           tipo: item.type,
-          conteudo: item.content,
-          ordem: item.order
-        }))
+                tamanho: item.fileSize,
+                base64Length: item.base64.length,
+                base64Preview: item.base64.substring(0, 50) + '...'
+              });
+            } else {
+              // ✅ FALLBACK: Se não há Base64, usar nome do arquivo
+              console.warn(`⚠️ Mídia ${item.type} sem Base64, usando nome do arquivo:`, {
+                nome: item.fileName,
+                tipo: item.type,
+                content: item.content
+              });
+              mediaItem.conteudo = item.content || item.fileName || 'Arquivo sem nome';
+              mediaItem.nome_arquivo = item.fileName || 'Arquivo sem nome';
+              mediaItem.tamanho_arquivo = item.fileSize || 0;
+            }
+          } else {
+            // ✅ Para texto, usar o conteúdo normal
+            mediaItem.conteudo = item.content;
+            console.log(`✅ Item de texto adicionado:`, {
+              tipo: item.type,
+              content: item.content
+            });
+          }
+          
+          return mediaItem;
+        })
       }))
     };
   };
 
   const handleSave = async () => {
-    if (!isValidating) return;
-    
+    // ✅ NOVO: Validação de datas no passado
+    const now = new Date();
+    const invalidSchedules = schedules.filter(schedule => {
+      if (!schedule.date || !schedule.time) return false;
+      const scheduleDateTime = new Date(`${schedule.date}T${schedule.time}`);
+      return scheduleDateTime <= now;
+    });
+
+    if (invalidSchedules.length > 0) {
+      toast({
+        title: "Datas inválidas",
+        description: "Não é possível agendar campanhas no passado. Verifique as datas e horários.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const totalContacts = selectedTags.length * 100;
 
     // Create multiple campaigns for multiple schedules
@@ -479,7 +606,8 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
         sentCount: 0,
         selectedAccounts,
         selectedTags,
-        excludedContacts,
+        // ✅ REMOVIDO: Exceções desabilitadas
+        // ✅ REMOVIDO: Exceções por tags desabilitadas
         sequences,
         delayMin,
         delayMax,
@@ -493,13 +621,125 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
     // Format campaigns for API request
     const formattedCampaigns = campaignsToSave.map(formatCampaignForRequest);
     
-    // Log the formatted data (you can replace this with your API call)
-    console.log('Campanhas formatadas para API:', formattedCampaigns);
+    // ✅ NOVO: Estrutura JSON para API
+    const jsonPayload = {
+      campanhas: formattedCampaigns
+    };
     
-    // Save each campaign
+    // ✅ NOVO: Log detalhado das campanhas formatadas
+    console.log('📤 Campanhas formatadas para API:', jsonPayload);
+    
+    // ✅ NOVO: Verificar se há Base64 nas mídias
+    jsonPayload.campanhas.forEach((campaign, campaignIndex) => {
+      console.log(`🔍 Verificando campanha ${campaignIndex + 1}:`, campaign.nome_da_campanha);
+      
+      campaign.configuracao_sequencia.forEach((sequence, sequenceIndex) => {
+        console.log(`📋 Sequência ${sequenceIndex + 1}: ${sequence.nome_sequencia}`);
+        
+        if (sequence.itens && Array.isArray(sequence.itens)) {
+          sequence.itens.forEach((item, itemIndex) => {
+            if (['image', 'video', 'audio', 'file', 'recorded_audio'].includes(item.tipo_de_mensagem)) {
+              if (item.conteudo && item.conteudo.length > 100) {
+                console.log(`✅ Item ${itemIndex + 1} (${item.tipo_de_mensagem}): Base64 válido`, {
+                  nome: item.nome_arquivo,
+                  tamanho: item.tamanho_arquivo,
+                  base64Length: item.conteudo.length,
+                  base64Preview: item.conteudo.substring(0, 50) + '...'
+                });
+              } else {
+                console.warn(`⚠️ Item ${itemIndex + 1} (${item.tipo_de_mensagem}): SEM Base64 válido`, {
+                  nome: item.nome_arquivo,
+                  conteudo: item.conteudo,
+                  tamanho: item.conteudo?.length || 0
+                });
+              }
+            } else {
+              console.log(`📝 Item ${itemIndex + 1} (${item.tipo_de_mensagem}): Texto`, {
+                conteudo: item.conteudo,
+                tamanho: item.conteudo?.length || 0
+              });
+            }
+          });
+        } else {
+          console.warn(`⚠️ Sequência ${sequence.nome_sequencia} sem itens válidos:`, sequence);
+        }
+      });
+    });
+    
+    // ✅ NOVO: Validação da estrutura JSON
+    console.log('🔍 Validando estrutura JSON...');
+    console.log('📊 Estrutura esperada:', {
+      campanhas: 'Array de campanhas',
+      cada_campanha: {
+        nome_da_campanha: 'string',
+        data: 'string (YYYY-MM-DD)',
+        horario: 'string (HH:MM)',
+        tags: 'Array de strings',
+        excecoes: 'Array de strings',
+        excecoes_agrupadas_em_tags: 'Array de strings (tags de leads para excluir)',
+        contas_selecionadas: 'Array de IDs (strings)',
+        delay: 'string (número em segundos)',
+        configuracao_sequencia: 'Array de objetos com nome da sequência e Base64 das mídias'
+      }
+    });
+    
+    // ✅ NOVO: Validação dos dados
+    formattedCampaigns.forEach((campaign, index) => {
+      console.log(`🔍 Validação da campanha ${index + 1}:`, {
+        nome: typeof campaign.nome_da_campanha === 'string' ? '✅' : '❌',
+        data: typeof campaign.data === 'string' ? '✅' : '❌',
+        horario: typeof campaign.horario === 'string' ? '✅' : '❌',
+        tags: Array.isArray(campaign.tags) ? '✅' : '❌',
+        excecoes: Array.isArray(campaign.excecoes) ? '✅' : '❌',
+        excecoes_tags: Array.isArray(campaign.excecoes_agrupadas_em_tags) ? '✅' : '❌',
+        contas: Array.isArray(campaign.contas_selecionadas) ? '✅' : '❌',
+        delay: typeof campaign.delay === 'string' ? '✅' : '❌',
+        sequencias: Array.isArray(campaign.configuracao_sequencia) ? '✅' : '❌',
+        base64: (campaign.configuracao_sequencia as any[]).some(seq => 
+          seq.itens && Array.isArray(seq.itens) && seq.itens.some((item: any) => item.base64)
+        ) ? '✅' : '❌',
+        tamanho_total: `${((campaign.configuracao_sequencia as any[]).reduce((total, seq) => 
+          total + (seq.itens && Array.isArray(seq.itens) ? seq.itens.reduce((seqTotal: number, item: any) => 
+            seqTotal + (item.base64 ? Math.ceil(item.base64.length * 0.75 / 1024 / 1024) : 0), 0
+          ) : 0), 0
+        )).toFixed(1)}MB`
+      });
+    });
+    
+    try {
+      // ✅ NOVO: Integração com API
+      console.log('🔄 Enviando campanha para API...');
+      const response = await fetch('https://automatewebhook.techfala.com.br/webhook/cadastrar_campanha_disparo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(jsonPayload)
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Campanha criada com sucesso na API:', result);
+        
+        // ✅ MANTIDO: Callback local para compatibilidade
     campaignsToSave.forEach(campaign => {
       onSave(campaign);
     });
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Erro na API:', response.status, errorText);
+        throw new Error(`Erro na API: ${response.status} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao criar campanha:', error);
+      
+      // ✅ FALLBACK: Se API falhar, ainda salva localmente
+      console.log('🔄 Fallback: Salvando campanha localmente...');
+      campaignsToSave.forEach(campaign => {
+        onSave(campaign);
+      });
+    }
   };
 
   const renderStepContent = () => {
@@ -726,14 +966,7 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
                   >
                     {tagsLoading ? '⏳' : '🔄'} Refresh Tags
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={testApiEndpoint}
-                    className="border-cyber-border hover:border-cyber-green text-xs"
-                  >
-                    🧪 Testar API
-                  </Button>
+
                   <span className="text-sm text-muted-foreground">Página {tagsPage} de {totalLeadTagPages}</span>
                   <div className="flex gap-1">
                     <Button
@@ -825,17 +1058,52 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
               </CardContent>
             </Card>
 
-            <div>
-              <Label htmlFor="exclusions">Exceções (telefones separados por vírgula)</Label>
-              <Textarea
-                id="exclusions"
-                value={excludedContacts}
-                onChange={(e) => setExcludedContacts(e.target.value)}
-                placeholder="Ex: +5511999999999, +5511888888888"
-                className="bg-muted/50 border-cyber-border focus:border-cyber-green"
-              />
-            </div>
-            
+            {/* ✅ NOVO: Campo de exceções individuais com validação OBRIGATÓRIA */}
+            <Card className="border-cyber-border opacity-50">
+              <CardHeader>
+                <CardTitle className="text-cyber-purple flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2" />
+                  Exceções Individuais
+                </CardTitle>
+                <CardDescription>
+                  <span className="text-orange-500 font-medium">🚧 DESABILITADO:</span> Funcionalidade estará disponível em breve
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                    <p className="text-orange-800 text-sm font-medium mb-2">🚧 Funcionalidade em Desenvolvimento</p>
+                    <p className="text-orange-700 text-sm">
+                      A funcionalidade de exclusão de contatos individuais estará disponível em breve.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ✅ NOVO: Campo de exceções por tags com PREVENÇÃO DE CONFLITOS */}
+            <Card className="border-cyber-border opacity-50">
+              <CardHeader>
+                <CardTitle className="text-cyber-purple flex items-center">
+                  <Tag className="h-5 w-5 mr-2" />
+                  Exceções por Tags de Lead
+                </CardTitle>
+                <CardDescription>
+                  <span className="text-orange-500 font-medium">🚧 DESABILITADO:</span> Funcionalidade estará disponível em breve
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                    <p className="text-orange-800 text-sm font-medium mb-2">🚧 Funcionalidade em Desenvolvimento</p>
+                    <p className="text-orange-700 text-sm">
+                      A funcionalidade de exclusão de leads por tags estará disponível em breve.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Exibir mensagem de validação da step 2 */}
             {getValidationMessage() && (
               <Alert className="mt-2">
@@ -874,14 +1142,7 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
                     >
                       {accountsLoading ? '⏳' : '🔄'} Refresh Contas
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={testAccountsApi}
-                      className="border-cyber-border hover:border-cyber-green text-xs"
-                    >
-                      🧪 Testar API Contas
-                    </Button>
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -891,14 +1152,7 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
                     >
                       {tagsLoading ? '⏳' : '🔄'} Refresh Tags
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={testApiEndpoint}
-                      className="border-cyber-border hover:border-cyber-green text-xs"
-                    >
-                      🧪 Testar API Tags
-                    </Button>
+
                   </div>
                 </div>
               </CardHeader>
@@ -1003,23 +1257,23 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
                 ) : (
                   <>
                     {/* Tabela de Contas */}
-                    <div className="border border-cyber-border rounded-lg overflow-hidden">
-                      <table className="w-full">
+                    <div className="border border-cyber-border rounded-lg overflow-x-auto">
+                      <table className="w-full min-w-[1000px]">
                         <thead className="bg-muted/50">
                           <tr>
-                            <th className="px-4 py-3 text-left">
+                            <th className="px-2 py-3 text-left w-12">
                               <Checkbox
                                 checked={areAllAccountsSelected}
                                 onCheckedChange={toggleAllAccounts}
                                 className="data-[state=checked]:bg-cyber-green"
                               />
                             </th>
-                            <th className="px-4 py-3 text-left text-sm font-medium">Conta</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium">Telefone</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium">Reputação</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium">Tags</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium">Ações</th>
+                            <th className="px-3 py-3 text-left text-sm font-medium w-48">Conta</th>
+                            <th className="px-3 py-3 text-left text-sm font-medium w-48">Telefone</th>
+                            <th className="px-3 py-3 text-left text-sm font-medium w-32">Status</th>
+                            <th className="px-3 py-3 text-left text-sm font-medium w-24">Reputação</th>
+                            <th className="px-3 py-3 text-left text-sm font-medium w-32">Tags</th>
+                            <th className="px-3 py-3 text-left text-sm font-medium w-24">Ações</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-cyber-border">
@@ -1027,86 +1281,88 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
                             .slice((accountPage - 1) * accountsPerPage, accountPage * accountsPerPage)
                             .map((account) => (
                             <tr key={account.id} className="hover:bg-muted/30">
-                              <td className="px-4 py-3">
+                              <td className="px-2 py-3">
                                 <Checkbox
-                                  checked={selectedAccounts.includes(account.nome_conta)}
+                                  checked={selectedAccounts.includes(String(account.nome_conta))}
                                   onCheckedChange={(checked) => {
                                     if (checked) {
-                                      setSelectedAccounts([...selectedAccounts, account.nome_conta]);
+                                      setSelectedAccounts([...selectedAccounts, String(account.nome_conta)]);
                                     } else {
-                                      setSelectedAccounts(selectedAccounts.filter(t => t !== account.nome_conta));
+                                      setSelectedAccounts(selectedAccounts.filter(t => t !== String(account.nome_conta)));
                                     }
                                   }}
                                   className="data-[state=checked]:bg-cyber-green"
                                 />
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-3">
                                 <div className="flex items-center space-x-2">
                                   <div className="w-8 h-8 bg-cyber-green/20 rounded-full flex items-center justify-center">
                                     <span className="text-cyber-green text-sm font-medium">
-                                      {account.nome_conta.charAt(0).toUpperCase()}
+                                      {String(account.nome_conta).charAt(0).toUpperCase()}
                                     </span>
                                   </div>
-                                  <div>
-                                    <p className="text-sm font-medium">{account.nome_conta}</p>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium truncate">{String(account.nome_conta)}</p>
                                     <p className="text-xs text-muted-foreground">ID: {account.id}</p>
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-4 py-3">
-                                <p className="text-sm font-mono">{account.telefone}</p>
+                              <td className="px-3 py-3">
+                                <p className="text-sm font-mono truncate max-w-[180px]" title={String(account.telefone)}>
+                                  {String(account.telefone)}
+                                </p>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-3">
                                 <Badge 
-                                  variant={account.status === 'conectado' ? 'default' : 'destructive'} 
+                                  variant={String(account.status) === 'conectado' ? 'default' : 'destructive'} 
                                   className={`text-xs ${
-                                    account.status === 'conectado' 
+                                    String(account.status) === 'conectado' 
                                       ? 'bg-cyber-green/20 text-cyber-green border-cyber-green/50'
                                       : 'bg-red-500/20 text-red-500 border-red-500/50'
                                   }`}
                                 >
-                                  {account.status === 'conectado' ? 'Conectado' : 'Desconectado'}
+                                  {String(account.status) === 'conectado' ? 'Conectado' : 'Desconectado'}
                                 </Badge>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-3">
                                 <Badge 
                                   variant="secondary" 
                                   className={`text-xs ${
-                                    account.reputacao === 'boa' 
+                                    String(account.reputacao) === 'boa' 
                                       ? 'bg-green-500/20 text-green-500 border-green-500/50'
-                                      : account.reputacao === 'ruim'
+                                      : String(account.reputacao) === 'ruim'
                                       ? 'bg-red-500/20 text-red-500 border-red-500/50'
                                       : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'
                                   }`}
                                 >
-                                  {account.reputacao === 'boa' ? 'Boa' : account.reputacao === 'ruim' ? 'Ruim' : 'Neutra'}
+                                  {String(account.reputacao) === 'boa' ? 'Boa' : String(account.reputacao) === 'ruim' ? 'Ruim' : 'Neutra'}
                                 </Badge>
                               </td>
-                              <td className="px-4 py-3">
-                                <div className="flex flex-wrap gap-1">
+                              <td className="px-3 py-3">
+                                <div className="flex flex-wrap gap-1 max-w-[120px]">
                                   {Array.isArray(tags) && tags
                                     .filter(tag => tag.tipo === 'conta' && tag.id === account.id_tag)
                                     .map((tag) => (
-                                      <Badge key={tag.id} variant="outline" className="text-xs">
+                                      <Badge key={tag.id} variant="outline" className="text-xs truncate">
                                         {tag.nome}
                                       </Badge>
                                     ))}
                                 </div>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-3 py-3">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => {
-                                    if (selectedAccounts.includes(account.nome_conta)) {
-                                      setSelectedAccounts(selectedAccounts.filter(t => t !== account.nome_conta));
+                                    if (selectedAccounts.includes(String(account.nome_conta))) {
+                                      setSelectedAccounts(selectedAccounts.filter(t => t !== String(account.nome_conta)));
                                     } else {
-                                      setSelectedAccounts([...selectedAccounts, account.nome_conta]);
+                                      setSelectedAccounts([...selectedAccounts, String(account.nome_conta)]);
                                     }
                                   }}
-                                  className="text-xs h-7"
+                                  className="text-xs h-7 w-full"
                                 >
-                                  {selectedAccounts.includes(account.nome_conta) ? 'Remover' : 'Adicionar'}
+                                  {selectedAccounts.includes(String(account.nome_conta)) ? 'Remover' : 'Adicionar'}
                                 </Button>
                               </td>
                             </tr>
@@ -1291,235 +1547,34 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
               <p className="text-muted-foreground">Configure as sequências de mensagens e mídias</p>
             </div>
 
-            <MediaSequenceManager 
+            <SequenceManager 
               sequences={sequences}
               onSequencesChange={setSequences}
+              activeSequenceIndex={activeSequenceIndex}
+              onActiveSequenceChange={setActiveSequenceIndex}
             />
 
 
-            {/* Media Selection Tabs */}
-            <Tabs defaultValue="text" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="text" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Texto
-                </TabsTrigger>
-                <TabsTrigger value="image" className="flex items-center gap-2">
-                  <Image className="h-4 w-4" />
-                  Imagem
-                </TabsTrigger>
-                <TabsTrigger value="file" className="flex items-center gap-2">
-                  <File className="h-4 w-4" />
-                  Documento
-                </TabsTrigger>
-                <TabsTrigger value="audio" className="flex items-center gap-2">
-                  <Upload className="h-4 w-4" />
-                  Áudio PC
-                </TabsTrigger>
-                <TabsTrigger value="record" className="flex items-center gap-2">
-                  <Mic className="h-4 w-4" />
-                  Gravar
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="text" className="space-y-4">
-                <Card className="border-cyber-border">
-                  <CardHeader>
-                    <CardTitle className="text-cyber-green">Mensagem de Texto</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      placeholder="Digite sua mensagem aqui... Use {{nome}}, {{empresa}}, etc. para personalização"
-                      className="bg-muted/50 border-cyber-border focus:border-cyber-green min-h-[100px]"
-                      onChange={(e) => {
-                        const content = e.target.value;
-                        // checkVariableWarnings(); // This function is now called directly in addMediaItem
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      className="mt-3"
-                      onClick={() => {
-                        const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
-                        if (textarea?.value) {
-                          addMediaItem('text', textarea.value);
-                          // textarea.value = ''; // This line is removed
-                        }
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar Texto
-                    </Button>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="image" className="space-y-4">
-                <Card className="border-cyber-border">
-                  <CardHeader>
-                    <CardTitle className="text-cyber-green">Upload de Imagem</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      className="bg-muted/50 border-cyber-border"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          addMediaItem('image', file.name, file);
-                        }
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="file" className="space-y-4">
-                <Card className="border-cyber-border">
-                  <CardHeader>
-                    <CardTitle className="text-cyber-green">Upload de Documento</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Input
-                      type="file"
-                      accept=".pdf,.doc,.docx,.txt"
-                      className="bg-muted/50 border-cyber-border"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          addMediaItem('file', file.name, file);
-                        }
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="audio" className="space-y-4">
-                <Card className="border-cyber-border">
-                  <CardHeader>
-                    <CardTitle className="text-cyber-green">Upload de Áudio</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Input
-                      type="file"
-                      accept="audio/*"
-                      className="bg-muted/50 border-cyber-border"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          addMediaItem('audio', file.name, file);
-                        }
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="record" className="space-y-4">
-                <Card className="border-cyber-border">
-                  <CardHeader>
-                    <CardTitle className="text-cyber-purple">Gravação de Áudio</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      {!isRecording ? (
-                        <Button
-                          type="button"
-                          onClick={startRecording}
-                          className="bg-primary hover:bg-primary/90"
-                        >
-                          <Volume2 className="h-4 w-4 mr-2" />
-                          Gravar Áudio
-                        </Button>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            variant="destructive"
-                            onClick={stopRecording}
-                          >
-                            <StopCircle className="h-4 w-4 mr-2" />
-                            Parar Gravação
-                          </Button>
-                          <div className="flex items-center gap-2 bg-destructive/10 px-3 py-2 rounded">
-                            <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
-                            <span className="text-sm font-medium">{recordingDuration}s / 30s</span>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {audioBlob && (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">Áudio gravado ({recordingDuration}s)</Badge>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const audio = new Audio(URL.createObjectURL(audioBlob));
-                              audio.play();
-                            }}
-                          >
-                            <Play className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => {
-                              addMediaItem('recorded_audio', `Áudio gravado (${recordingDuration}s)`, undefined, audioBlob);
-                              setAudioBlob(null);
-                              setRecordingDuration(0);
-                            }}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Adicionar
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+            {/* ✅ REMOVIDO: Código antigo de sequências duplicado */}
+            {/* Agora gerenciado exclusivamente pelo SequenceManager */}
 
 
-            {/* Variable Warnings */}
-            {variableWarnings.length > 0 && (
-              <Alert className="border-destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <p className="font-medium">Variáveis não encontradas em alguns contatos:</p>
-                    {variableWarnings.map((warning) => (
-                      <div key={warning.variable} className="text-sm">
-                        • <code>{'{{' + warning.variable + '}}'}</code>: {warning.missingContacts} contatos sem esta informação
-                      </div>
-                    ))}
-                    <p className="text-xs mt-2">
-                      Recomendamos criar mensagens alternativas para estes casos.
-                    </p>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
+            {/* ✅ REMOVIDO: Avisos de variáveis - funcionalidade desabilitada */}
 
             {/* Variables Guide */}
-            <Card className="border-cyber-border">
+            <Card className="border-cyber-border opacity-50">
               <CardHeader>
-                <CardTitle className="text-cyber-green">Variáveis Disponíveis</CardTitle>
+                <CardTitle className="text-cyber-green">Variáveis de Personalização</CardTitle>
                 <CardDescription>
-                  Baseadas nas colunas importadas da planilha de contatos
+                  <span className="text-orange-500 font-medium">🚧 DESABILITADO:</span> Funcionalidade estará disponível em breve
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {AVAILABLE_COLUMNS.map((column) => (
-                    <div key={column} className="flex items-center gap-2">
-                      <code className="bg-muted p-2 rounded flex-1">{'{{' + column + '}}'}</code>
-                      <span className="capitalize text-muted-foreground">{column.replace('_', ' ')}</span>
-                    </div>
-                  ))}
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-orange-800 text-sm font-medium mb-2">🚧 Funcionalidade em Desenvolvimento</p>
+                  <p className="text-orange-700 text-sm">
+                    As variáveis de personalização estarão disponíveis em breve.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -1578,6 +1633,9 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
                     ))}
                   </div>
                 </div>
+
+                {/* ✅ REMOVIDO: Exceções individuais - funcionalidade desabilitada */}
+                {/* ✅ REMOVIDO: Exceções por tags - funcionalidade desabilitada */}
 
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Configurações:</p>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, EyeOff, Github, Twitter, Gamepad2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 const NexusLogin = () => {
   console.log('NexusLogin component rendering...'); // Debug log
@@ -132,41 +132,7 @@ const NexusLogin = () => {
               {loading ? "Entrando..." : "Fazer Login"}
             </Button>
 
-            {/* Social Login */}
-            <div className="space-y-4">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-white/20" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-slate-900 px-2 text-gray-400">quick access via</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="bg-white/10 border-white/20 hover:bg-purple-500/20 hover:border-purple-400 transition-all duration-300"
-                >
-                  <Github className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="bg-white/10 border-white/20 hover:bg-purple-500/20 hover:border-purple-400 transition-all duration-300"
-                >
-                  <Twitter className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="bg-white/10 border-white/20 hover:bg-purple-500/20 hover:border-purple-400 transition-all duration-300"
-                >
-                  <Gamepad2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            {/* ✅ REMOVIDO: Login social - não implementado */}
 
             {/* Create Account */}
             <div className="text-center text-sm">

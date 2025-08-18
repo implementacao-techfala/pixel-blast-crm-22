@@ -7,7 +7,106 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { QrCode, Play, Pause, Square, CheckCircle2, XCircle, Clock } from 'lucide-react';
-import { generateQRCode } from '@/lib/webhook';
+// ✅ CORRIGIDO: Função local para gerar QR Code com endpoint correto
+const generateQRCodeLocal = async (name: string, phone: string): Promise<{ success: boolean; qrCode?: string; error?: string }> => {
+  try {
+    console.log('🔄 Gerando QR Code para:', { name, phone });
+    
+    // ✅ NOVO: Validar parâmetros
+    if (!name || !phone) {
+      throw new Error('Nome e telefone são obrigatórios');
+    }
+    
+    // ✅ CORRIGIDO: Endpoint correto da API
+    const apiUrl = 'https://automatewebhook.techfala.com.br/webhook/gestor-de-grupos';
+    
+    // ✅ NOVO: Log da requisição
+    const requestBody = {
+      nome_conta: name,
+      telefone: phone
+    };
+    console.log('📤 Enviando requisição para API:', {
+      url: apiUrl,
+      method: 'POST',
+      body: requestBody
+    });
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    console.log('📥 Resposta recebida:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Erro HTTP:', { status: response.status, statusText: response.statusText, body: errorText });
+      throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('📥 Resposta da API de QR Code:', result);
+    
+    // ✅ CORRIGIDO: Processar diferentes formatos de resposta
+    if (result.qr_code) {
+      // Formato: { qr_code: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..." }
+      console.log('✅ Formato qr_code detectado');
+      const base64Data = result.qr_code.split(',')[1];
+      if (base64Data) {
+        return { success: true, qrCode: base64Data };
+      }
+    } else if (result.d && typeof result.d === 'string' && result.d.startsWith('data:image/')) {
+      // Formato: { d: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..." }
+      console.log('✅ Formato d detectado');
+      const base64Data = result.d.split(',')[1];
+      if (base64Data) {
+        return { success: true, qrCode: base64Data };
+      }
+    } else if (result.success && result.qrCode) {
+      // Formato: { success: true, qrCode: "iVBORw0KGgoAAAANSUhEUgAA..." }
+      console.log('✅ Formato success detectado');
+      return result;
+    } else if (result.qrCode && !result.success) {
+      // Formato: { qrCode: "iVBORw0KGgoAAAANSUhEUgAA..." }
+      console.log('✅ Formato qrCode direto detectado');
+      return { success: true, qrCode: result.qrCode };
+    }
+    
+    console.warn('⚠️ Formato de resposta não reconhecido:', result);
+    return { success: false, error: 'Formato de resposta inválido da API' };
+  } catch (error) {
+    console.error('❌ Erro ao gerar QR Code:', error);
+    
+    // ✅ NOVO: Log detalhado do erro
+    if (error instanceof Error) {
+      console.error('📋 Detalhes do erro:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // ✅ NOVO: Tratamento específico para diferentes tipos de erro
+      if (error.message.includes('Failed to fetch')) {
+        return { success: false, error: 'Erro de conexão com a API. Verifique sua internet e se a API está online.' };
+      } else if (error.message.includes('HTTP')) {
+        return { success: false, error: `Erro da API: ${error.message}` };
+      } else {
+        return { success: false, error: error.message };
+      }
+    }
+    
+    return { success: false, error: 'Erro desconhecido ao gerar QR Code' };
+  }
+};
 
 interface QRCodeSession {
   id: string;
@@ -29,6 +128,37 @@ export const BulkQRManager = ({ onAccountConnected }: { onAccountConnected: (acc
   const [autoAdvance, setAutoAdvance] = useState(true);
   const { toast } = useToast();
 
+  // ✅ NOVO: Função para testar a API antes de iniciar o processo
+  const testAPI = async () => {
+    try {
+      toast({
+        title: "Testando API...",
+        description: "Verificando se a API está online",
+      });
+      
+      const testResult = await generateQRCodeLocal('TESTE', '5511999999999');
+      
+      if (testResult.success) {
+        toast({
+          title: "✅ API funcionando!",
+          description: "A API está respondendo corretamente",
+        });
+      } else {
+        toast({
+          title: "❌ API com problemas",
+          description: testResult.error || 'Erro desconhecido',
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Erro no teste",
+        description: "Falha ao testar a API",
+        variant: "destructive"
+      });
+    }
+  };
+
   const parseAccountsText = (text: string): Omit<QRCodeSession, 'id' | 'qrCode' | 'status' | 'timestamp'>[] => {
     return text
       .split('\n')
@@ -44,50 +174,102 @@ export const BulkQRManager = ({ onAccountConnected }: { onAccountConnected: (acc
 
 
   const startBulkProcess = async () => {
-    const accounts = parseAccountsText(accountsText);
-    
-    if (accounts.length === 0) {
-      toast({
-        title: "Lista vazia",
-        description: "Adicione pelo menos uma conta para conectar",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Criar sessões para a fila
-    const sessions: QRCodeSession[] = [];
-    for (const account of accounts) {
-      const result = await generateQRCode(account.name, account.phone);
-      if (result.success && result.qrCode) {
-        sessions.push({
-          id: `session_${Date.now()}_${Math.random()}`,
-          name: account.name,
-          phone: account.phone,
-          qrCode: result.qrCode,
-          status: 'pending',
-          timestamp: new Date().toISOString()
-        });
-      } else {
+    try {
+      const accounts = parseAccountsText(accountsText);
+      
+      if (accounts.length === 0) {
         toast({
-          title: "Erro ao gerar QR Code",
-          description: `Falha para ${account.name}: ${result.error || 'Erro desconhecido'}`,
+          title: "Lista vazia",
+          description: "Adicione pelo menos uma conta para conectar",
           variant: "destructive"
         });
+        return;
       }
+
+      console.log('🚀 Iniciando processo em massa para', accounts.length, 'contas');
+      
+      // ✅ CORRIGIDO: Criar sessões para a fila com função local
+      const sessions: QRCodeSession[] = [];
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const account of accounts) {
+        try {
+          console.log(`🔄 Processando conta: ${account.name} - ${account.phone}`);
+          
+          // ✅ NOVO: Adicionar delay entre requisições para evitar sobrecarga
+          if (sessions.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // 1 segundo de delay
+          }
+          
+          const result = await generateQRCodeLocal(account.name, account.phone);
+          
+          if (result.success && result.qrCode) {
+            console.log(`✅ QR Code gerado para: ${account.name}`);
+            successCount++;
+            sessions.push({
+              id: `session_${Date.now()}_${Math.random()}`,
+              name: account.name,
+              phone: account.phone,
+              qrCode: result.qrCode,
+              status: 'pending',
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            console.error(`❌ Falha ao gerar QR Code para: ${account.name}`, result.error);
+            errorCount++;
+            
+            // ✅ NOVO: Toast individual para cada erro
+            toast({
+              title: `Erro: ${account.name}`,
+              description: result.error || 'Erro desconhecido',
+              variant: "destructive"
+            });
+          }
+        } catch (accountError) {
+          console.error(`❌ Erro inesperado para conta ${account.name}:`, accountError);
+          errorCount++;
+          
+          toast({
+            title: `Erro inesperado: ${account.name}`,
+            description: 'Falha na requisição',
+            variant: "destructive"
+          });
+        }
+      }
+
+      console.log(`📊 Resumo do processamento: ${successCount} sucessos, ${errorCount} erros`);
+
+      if (sessions.length === 0) {
+        toast({
+          title: "Nenhum QR Code gerado",
+          description: "Todas as contas falharam. Verifique os logs para mais detalhes.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setQueuedSessions(sessions);
+      setShowBulkDialog(false);
+      setIsActive(true);
+      
+      // ✅ NOVO: Toast com resumo do processo
+      toast({
+        title: "Processo iniciado!",
+        description: `${successCount} contas adicionadas à fila, ${errorCount} falharam`,
+      });
+
+      // Iniciar primeiro QR code
+      processNextQR();
+      
+    } catch (error) {
+      console.error('❌ Erro geral no processo em massa:', error);
+      toast({
+        title: "Erro no processo",
+        description: "Falha ao iniciar o processo em massa",
+        variant: "destructive"
+      });
     }
-
-    setQueuedSessions(sessions);
-    setShowBulkDialog(false);
-    setIsActive(true);
-    
-    toast({
-      title: "Processo iniciado!",
-      description: `${sessions.length} contas adicionadas à fila de conexão`,
-    });
-
-    // Iniciar primeiro QR code
-    processNextQR();
   };
 
   const processNextQR = () => {
@@ -262,6 +444,15 @@ export const BulkQRManager = ({ onAccountConnected }: { onAccountConnected: (acc
                   </div>
                 </div>
               </div>
+
+              {/* ✅ NOVO: Botão de teste da API */}
+              <Button 
+                onClick={testAPI} 
+                variant="outline" 
+                className="w-full border-cyber-border hover:border-cyber-green"
+              >
+                🧪 Testar API
+              </Button>
 
               <Button onClick={startBulkProcess} className="w-full">
                 <Play className="h-4 w-4 mr-2" />

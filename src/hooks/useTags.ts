@@ -119,180 +119,14 @@ export const useTags = () => {
     return validTags;
   };
 
-  // Função principal de busca
-  const fetchTags = async (forceRefresh = false) => {
-    console.log('🔄 fetchTags chamada com forceRefresh:', forceRefresh);
-    
+  // Função para buscar tags da API
+  const fetchTags = async (forceRefresh: boolean = false) => {
     try {
-      // Verificar se já está carregando
-      if (loading && !forceRefresh) {
-        console.log('⏳ Já está carregando, aguardando...');
-        return;
-      }
-      
-      console.log('🔄 Configurando estado de loading...');
       setLoading(true);
       setError(null);
       
-      console.log(`🔄 Iniciando busca de tags...`);
-      console.log(`📡 URL: ${BASE_URL}`);
-      console.log(`🔍 Headers:`, {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      });
+      console.log('🔄 Buscando tags da API...', { forceRefresh, url: BASE_URL });
       
-      console.log('🔄 Fazendo requisição fetch...');
-      const response = await fetch(BASE_URL, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        },
-        cache: 'no-store'
-      });
-      
-      console.log('✅ Requisição fetch concluída!');
-      console.log('📡 Resposta recebida:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        url: response.url
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      // Tentar obter o texto primeiro para debug
-      const responseText = await response.text();
-      console.log('📄 Conteúdo bruto da resposta:', responseText);
-      console.log('📏 Tamanho do conteúdo:', responseText.length, 'caracteres');
-      
-      let data: any;
-      try {
-        data = JSON.parse(responseText);
-        console.log('🔍 JSON parseado com sucesso');
-      } catch (parseError) {
-        console.error('❌ Erro ao parsear JSON:', parseError);
-        throw new Error('Resposta não é um JSON válido');
-      }
-      
-      const processedTags = processApiData(data);
-      
-      // Se recebemos "Workflow was started", implementar polling
-      if (data && typeof data === 'object' && data.message === 'Workflow was started') {
-        console.log('🔄 Workflow iniciado - implementando polling...');
-        
-        // Implementar polling com retry progressivo
-        let retryCount = 0;
-        const maxRetries = 10; // Máximo de 10 tentativas
-        const baseDelay = 2000; // 2 segundos inicial
-        
-        const pollForTags = async () => {
-          retryCount++;
-          console.log(`🔄 Tentativa ${retryCount} de ${maxRetries} - aguardando ${baseDelay * retryCount}ms...`);
-          
-          if (retryCount > maxRetries) {
-            console.error('❌ Máximo de tentativas atingido - workflow não completou');
-            setError('Workflow não completou após múltiplas tentativas. Verifique se o workflow N8N está ativo.');
-            setLoading(false);
-            return;
-          }
-          
-          // Aguardar tempo progressivo
-          await new Promise(resolve => setTimeout(resolve, baseDelay * retryCount));
-          
-          try {
-            console.log('🔄 Fazendo retry para verificar se workflow completou...');
-            const retryResponse = await fetch(BASE_URL, {
-              method: 'GET',
-              headers: {
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache'
-              }
-            });
-            
-            if (retryResponse.ok) {
-              const retryText = await retryResponse.text();
-              console.log('📄 Resposta do retry:', retryText);
-              
-              try {
-                const retryData = JSON.parse(retryText);
-                
-                // Se ainda é "Workflow was started", continuar polling
-                if (retryData && typeof retryData === 'object' && retryData.message === 'Workflow was started') {
-                  console.log('🔄 Workflow ainda em execução, continuando polling...');
-                  pollForTags();
-                  return;
-                }
-                
-                // Se recebemos dados reais, processar
-                console.log('✅ Workflow completou! Processando dados...');
-                const finalTags = processApiData(retryData);
-                
-                if (finalTags.length > 0) {
-                  setTags(finalTags);
-                  setLastFetchTime(Date.now());
-                  console.log(`✅ Tags carregadas com sucesso: ${finalTags.length} tags`);
-                } else {
-                  setError('Workflow completou mas não retornou tags válidas');
-                }
-                
-                setLoading(false);
-                
-              } catch (parseError) {
-                console.error('❌ Erro ao parsear resposta do retry:', parseError);
-                pollForTags();
-              }
-            } else {
-              console.error('❌ Erro no retry:', retryResponse.status);
-              pollForTags();
-            }
-          } catch (retryError) {
-            console.error('❌ Erro na requisição de retry:', retryError);
-            pollForTags();
-          }
-        };
-        
-        // Iniciar polling
-        pollForTags();
-        return;
-      }
-      
-      if (processedTags.length === 0) {
-        throw new Error('Nenhuma tag válida encontrada na resposta');
-      }
-      
-      // Sucesso! Atualizar estado
-      setTags(processedTags);
-      setLastFetchTime(Date.now());
-      
-      console.log(`✅ Busca bem-sucedida: ${processedTags.length} tags carregadas`);
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      console.error(`❌ Erro na busca de tags:`, errorMessage);
-      setError(errorMessage);
-      setTags([]);
-    } finally {
-      setLoading(false);
-      console.log('🏁 Busca de tags finalizada');
-    }
-  };
-
-  // Função para refresh forçado
-  const refreshTags = () => {
-    console.log('🔄 Refresh forçado solicitado');
-    fetchTags(true);
-  };
-
-  // Função para fazer teste detalhado da API
-  const testApiEndpoint = async () => {
-    console.log('🧪 Iniciando teste detalhado da API...');
-    
-    try {
       const response = await fetch(BASE_URL, {
         method: 'GET',
         headers: {
@@ -300,32 +134,57 @@ export const useTags = () => {
           'Cache-Control': 'no-cache'
         }
       });
-      
-      console.log('📡 Resposta do teste:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        url: response.url
-      });
-      
-      const text = await response.text();
-      console.log('📄 Conteúdo bruto da resposta:', text);
-      console.log('📏 Tamanho do conteúdo:', text.length, 'caracteres');
-      
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const responseText = await response.text();
+      console.log('📄 Resposta bruta da API:', responseText);
+
+      let data: any;
       try {
-        const json = JSON.parse(text);
-        console.log('🔍 JSON parseado:', json);
-        console.log('📊 Tipo:', typeof json);
-        console.log('🔍 É array?', Array.isArray(json));
-        console.log('🔍 Tamanho:', Array.isArray(json) ? json.length : 1);
+        data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('❌ Erro ao parsear JSON:', parseError);
+        console.error('❌ Erro ao parsear resposta JSON:', parseError);
+        throw new Error('Resposta da API não é um JSON válido');
+      }
+
+      console.log('📥 Dados parseados da API:', data);
+
+      // ✅ CORRIGIDO: Processar dados sem polling complexo
+      const processedTags = processApiData(data);
+      
+      if (processedTags.length === 0) {
+        console.warn('⚠️ Nenhuma tag válida encontrada na resposta');
+        setTags([]);
+      } else {
+        // Sucesso! Atualizar estado
+        setTags(processedTags);
+        setLastFetchTime(Date.now());
+        console.log(`✅ Busca bem-sucedida: ${processedTags.length} tags carregadas`);
       }
       
-    } catch (error) {
-      console.error('❌ Erro no teste da API:', error);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.error(`❌ Erro na busca de tags:`, errorMessage);
+      setError(errorMessage);
+      // ✅ CORRIGIDO: Não zerar tags em caso de erro para manter dados existentes
+      // setTags([]); // REMOVIDO: Não zerar dados existentes
+    } finally {
+      setLoading(false);
+      console.log('🏁 Busca de tags finalizada');
     }
   };
+
+  // ✅ NOVO: Função para refresh forçado - APENAS quando solicitado manualmente
+  const refreshTags = () => {
+    console.log('🔄 Refresh forçado solicitado MANUALMENTE pelo usuário');
+    console.log('📊 Tags atuais antes do refresh:', tags.length);
+    fetchTags(true);
+  };
+
+
 
   // Função para obter estatísticas
   const getStats = () => {
@@ -398,15 +257,15 @@ export const useTags = () => {
     console.log('🔍 URL da API:', BASE_URL);
     console.log('🔍 Estado inicial:', { tags: tags.length, loading, error, retryCount });
     
-    // Verificar se já temos tags carregadas
-    if (tags.length > 0) {
+    // ✅ CORRIGIDO: Sempre fazer requisição inicial, mas apenas uma vez
+    if (tags.length === 0) {
+      console.log('🔄 Fazendo requisição inicial para carregar tags...');
+      fetchTags();
+    } else {
       console.log('✅ Tags já carregadas, pulando requisição inicial');
-      return;
+      setLoading(false);
     }
-    
-    console.log('🔄 Fazendo requisição inicial para carregar tags...');
-    fetchTags();
-  }, []);
+  }, []); // ✅ CORRIGIDO: Dependências vazias para executar apenas uma vez
 
   // Log de estado para debug
   useEffect(() => {
@@ -429,7 +288,6 @@ export const useTags = () => {
     // Funções de busca
     fetchTags: () => fetchTags(false),
     refreshTags,
-    testApiEndpoint,
     
     // Funções de consulta
     getTagsByType,

@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 
 export interface WhatsAppAccount {
   row_number: number;
-  id: number;
-  nome_conta: string;
-  telefone: number;
-  status: 'conectado' | 'desconectado' | 'pendente';
-  reputacao: 'boa' | 'ruim' | 'neutra';
-  criado_em: string;
-  atualizado_em: string;
-  id_tag: number;
+  id: string | number; // ✅ CORRIGIDO: Pode ser string vazia ou número
+  nome_conta: string | number; // ✅ CORRIGIDO: Pode ser string ou número
+  telefone: string | number; // ✅ CORRIGIDO: Pode ser string ou número
+  status: string; // ✅ CORRIGIDO: Aceita qualquer status
+  reputacao: string; // ✅ CORRIGIDO: Aceita qualquer reputação
+  criado_em: string; // ✅ CORRIGIDO: Pode ser string vazia
+  atualizado_em: string; // ✅ CORRIGIDO: Pode ser string vazia
+  id_tag: string | number; // ✅ CORRIGIDO: Pode ser string vazia ou número
 }
 
 export const useAccounts = () => {
@@ -20,15 +20,28 @@ export const useAccounts = () => {
 
   const BASE_URL = 'https://automatewebhook.techfala.com.br/webhook/ler_todas_contas';
 
-  // Função para validar estrutura da conta
+  // ✅ CORRIGIDO: Função para validar estrutura da conta - mais flexível
   const validateAccountStructure = (account: any): account is WhatsAppAccount => {
     if (!account || typeof account !== 'object') return false;
     
-    const requiredFields = ['nome_conta', 'telefone', 'status', 'reputacao', 'id'];
+    // ✅ CORRIGIDO: Campos obrigatórios mínimos
+    const requiredFields = ['nome_conta', 'telefone', 'status'];
     const hasRequiredFields = requiredFields.every(field => field in account);
     
     if (!hasRequiredFields) {
       console.warn('⚠️ Conta sem campos obrigatórios:', { account, camposFaltando: requiredFields.filter(field => !(field in account)) });
+      return false;
+    }
+    
+    // ✅ CORRIGIDO: Validar se nome_conta é válido (não pode ser string vazia ou null)
+    if (!account.nome_conta || account.nome_conta === '') {
+      console.warn('⚠️ Conta com nome vazio:', account);
+      return false;
+    }
+    
+    // ✅ CORRIGIDO: Validar se telefone é válido (não pode ser string vazia ou null)
+    if (!account.telefone || account.telefone === '') {
+      console.warn('⚠️ Conta com telefone vazio:', account);
       return false;
     }
     
@@ -47,23 +60,35 @@ export const useAccounts = () => {
     
     let accountsArray: WhatsAppAccount[] = [];
     
-    // Estratégia 1: Se já é um array
-    if (Array.isArray(data)) {
+    // ✅ CORRIGIDO: Estratégia para lidar com estrutura aninhada da API
+    // Estratégia 1: Se é um array que contém objetos com propriedade 'data'
+    if (Array.isArray(data) && data.length > 0 && data[0] && typeof data[0] === 'object' && data[0].data) {
+      console.log(`✅ Array com objetos contendo propriedade 'data' encontrado`);
+      // Extrair todas as propriedades 'data' dos objetos do array
+      const allDataArrays = data.map(item => item.data).filter(Boolean);
+      if (allDataArrays.length > 0) {
+        // Concatenar todos os arrays de dados
+        accountsArray = allDataArrays.flat();
+        console.log(`✅ Extraídos ${accountsArray.length} itens de ${allDataArrays.length} arrays de dados`);
+      }
+    }
+    // Estratégia 2: Se já é um array direto
+    else if (Array.isArray(data)) {
       console.log(`✅ Dados já são um array com ${data.length} itens`);
       accountsArray = data;
     }
-    // Estratégia 2: Se é um objeto com propriedade 'data'
+    // Estratégia 3: Se é um objeto com propriedade 'data'
     else if (data && typeof data === 'object' && data.data && Array.isArray(data.data)) {
       console.log(`✅ Encontrada propriedade 'data' com ${data.data.length} itens`);
       accountsArray = data.data;
     }
-    // Estratégia 3: Se é um objeto único
+    // Estratégia 4: Se é um objeto único
     else if (data && typeof data === 'object') {
       console.log('⚠️ ATENÇÃO: API retornou apenas 1 item em vez de array!');
       console.log('🔄 Convertendo objeto único para array');
       accountsArray = [data];
     }
-    // Estratégia 4: Se é uma string JSON
+    // Estratégia 5: Se é uma string JSON
     else if (typeof data === 'string') {
       try {
         console.log('🔄 Tentando parsear string JSON');
@@ -82,12 +107,12 @@ export const useAccounts = () => {
         console.warn('⚠️ Falha ao parsear string JSON:', parseError);
       }
     }
-    // Estratégia 5: Se é null/undefined
+    // Estratégia 6: Se é null/undefined
     else if (data == null) {
       console.warn('⚠️ Dados são null/undefined');
       return [];
     }
-    // Estratégia 6: Formato inesperado
+    // Estratégia 7: Formato inesperado
     else {
       console.error('❌ Formato de dados inesperado:', data);
       return [];

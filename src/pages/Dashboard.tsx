@@ -1,7 +1,7 @@
 import { BackgroundGraph } from '@/components/ui/background-graph';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, MessageSquare, Send, Settings } from 'lucide-react';
+import { Users, MessageSquare, Send, Settings, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -13,30 +13,42 @@ const Dashboard = () => {
       description: "Gerencie seus contatos e leads",
       icon: Users,
       path: "/leads",
-      color: "from-cyber-purple to-cyber-violet"
+      color: "from-cyber-purple to-cyber-violet",
+      locked: false
     },
     {
       title: "Contas WhatsApp",
       description: "Conecte e gerencie números",
       icon: MessageSquare,
       path: "/accounts",
-      color: "from-cyber-violet to-cyber-purple"
+      color: "from-cyber-violet to-cyber-purple",
+      locked: false
     },
     {
       title: "Campanhas",
       description: "Crie e agende disparos",
       icon: Send,
       path: "/campaigns",
-      color: "from-cyber-magenta to-cyber-violet"
+      color: "from-cyber-magenta to-cyber-violet",
+      locked: false
     },
     {
       title: "Configurações",
       description: "Configurações da conta",
       icon: Settings,
       path: "/settings",
-      color: "from-accent to-cyber-purple"
+      color: "from-accent to-cyber-purple",
+      locked: true
     }
   ];
+
+  const handleItemClick = (item: any) => {
+    if (item.locked) {
+      // ✅ BLOQUEADO: Não navegar para configurações
+      return;
+    }
+    navigate(item.path);
+  };
 
   return (
     <div className="min-h-screen relative">
@@ -58,12 +70,18 @@ const Dashboard = () => {
             return (
               <Card 
                 key={item.path}
-                className="group cursor-pointer bg-card/80 backdrop-blur-sm border-cyber-border hover:border-cyber-purple transition-all duration-300 hover:shadow-xl hover:shadow-cyber-purple/20 animate-fade-in"
-                onClick={() => navigate(item.path)}
+                className={`group ${item.locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-cyber-purple hover:shadow-xl hover:shadow-cyber-purple/20'} bg-card/80 backdrop-blur-sm border-cyber-border transition-all duration-300 animate-fade-in`}
+                onClick={() => handleItemClick(item)}
               >
                 <CardHeader className="text-center">
-                  <div className="mx-auto mb-4 p-3 rounded-full bg-gradient-to-br from-cyber-surface to-muted">
+                  <div className="mx-auto mb-4 p-3 rounded-full bg-gradient-to-br from-cyber-surface to-muted relative">
                     <IconComponent className="h-8 w-8 text-cyber-purple group-hover:text-cyber-magenta transition-colors duration-300" />
+                    {/* ✅ NOVO: Cadeado para configurações bloqueadas */}
+                    {item.locked && (
+                      <div className="absolute -top-2 -right-2 p-1.5 rounded-full bg-cyber-red/90 border-2 border-cyber-border">
+                        <Lock className="h-4 w-4 text-white" />
+                      </div>
+                    )}
                   </div>
                   <CardTitle className={`text-xl font-semibold bg-gradient-to-r ${item.color} bg-clip-text text-transparent`}>
                     {item.title}
@@ -74,9 +92,14 @@ const Dashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <Button 
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-300 group-hover:shadow-lg group-hover:shadow-cyber-purple/30"
+                    className={`w-full font-semibold transition-all duration-300 ${
+                      item.locked 
+                        ? 'bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted' 
+                        : 'bg-primary hover:bg-primary/90 text-primary-foreground group-hover:shadow-lg group-hover:shadow-cyber-purple/30'
+                    }`}
+                    disabled={item.locked}
                   >
-                    Acessar
+                    {item.locked ? 'Bloqueado' : 'Acessar'}
                   </Button>
                 </CardContent>
               </Card>

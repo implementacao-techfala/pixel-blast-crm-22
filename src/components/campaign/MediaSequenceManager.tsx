@@ -34,6 +34,9 @@ export interface MediaItem {
   variables?: string[];
   file?: File;
   audioBlob?: Blob;
+  base64?: string; // ✅ NOVO: Conteúdo Base64 da mídia
+  fileName?: string; // ✅ NOVO: Nome original do arquivo
+  fileSize?: number; // ✅ NOVO: Tamanho do arquivo em bytes
   alternatives?: MediaItem[];
 }
 
@@ -97,9 +100,7 @@ export const MediaSequenceManager: React.FC<MediaSequenceManagerProps> = ({
     if (sequences.length <= 1) return;
     
     const newSequences = sequences.filter((_, i) => i !== index);
-    if (newSequences.length > 0 && !newSequences.some(s => s.isDefault)) {
-      newSequences[0].isDefault = true;
-    }
+    // ✅ CORRIGIDO: Removida referência a isDefault
     
     onSequencesChange(newSequences);
     setActiveSequence(Math.max(0, Math.min(activeSequence, newSequences.length - 1)));
@@ -204,7 +205,7 @@ export const MediaSequenceManager: React.FC<MediaSequenceManagerProps> = ({
             <TabsTrigger key={sequence.id} value={index.toString()} className="relative">
               <div className="flex items-center gap-2">
                 <span>{sequence.name}</span>
-                {sequence.isDefault && <Badge className="h-4 px-1 text-xs">Padrão</Badge>}
+                {/* ✅ CORRIGIDO: Removida referência a isDefault */}
               </div>
             </TabsTrigger>
           ))}

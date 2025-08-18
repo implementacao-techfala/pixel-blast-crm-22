@@ -5,163 +5,137 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, Phone, Tag, ChevronDown, ChevronUp, FolderOpen, Folder, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Phone, Tag, ChevronDown, ChevronUp, FolderOpen, Folder, Loader2, AlertTriangle, CheckCircle, XCircle, Calendar, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { VirtualizedList } from '@/components/optimized/VirtualizedList';
 import { LeadsPagination } from '@/components/leads/LeadsPagination';
 import { LeadsImportExport } from '@/components/leads/LeadsImportExport';
 import { useTags } from '@/hooks/useTags';
+import { useLeads, Lead as ApiLead } from '@/hooks/useLeads';
 
-interface WhatsAppInteraction {
-  accountName: string;
-  lastContact: string;
-  messageCount: number;
-  status: 'delivered' | 'read' | 'failed' | 'no_response';
-  attemptedContacts: number;
-}
-
-interface Lead {
-  id: string;
-  name: string;
-  phone: string;
-  tags: string[];
-  whatsappInteractions: WhatsAppInteraction[];
-  status: 'active' | 'inactive' | 'blocked';
-}
-
-const mockLeads: Lead[] = [
-  {
-    id: '1',
-    name: 'João Silva',
-    phone: '+55 11 99999-1234',
-    tags: ['cliente', 'premium'],
-    whatsappInteractions: [
-      { accountName: 'Conta Principal', lastContact: '2024-01-15', messageCount: 45, status: 'read', attemptedContacts: 45 },
-      { accountName: 'Vendas', lastContact: '2024-01-12', messageCount: 12, status: 'delivered', attemptedContacts: 15 }
-    ],
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: 'Maria Santos',
-    phone: '+55 11 98888-5678',
-    tags: ['lead', 'interessado'],
-    whatsappInteractions: [
-      { accountName: 'Vendas', lastContact: '2024-01-14', messageCount: 8, status: 'no_response', attemptedContacts: 12 }
-    ],
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: 'Carlos Oliveira',
-    phone: '+55 11 97777-9012',
-    tags: ['cliente'],
-    whatsappInteractions: [
-      { accountName: 'Suporte', lastContact: '2024-01-13', messageCount: 23, status: 'read', attemptedContacts: 23 },
-      { accountName: 'Conta Principal', lastContact: '2024-01-10', messageCount: 5, status: 'failed', attemptedContacts: 8 }
-    ],
-    status: 'inactive'
-  },
-  {
-    id: '4',
-    name: 'Ana Costa',
-    phone: '+55 11 96666-3456',
-    tags: ['vip', 'cliente'],
-    whatsappInteractions: [
-      { accountName: 'Conta Principal', lastContact: '2024-01-16', messageCount: 67, status: 'read', attemptedContacts: 67 },
-      { accountName: 'Vendas', lastContact: '2024-01-14', messageCount: 15, status: 'delivered', attemptedContacts: 18 },
-      { accountName: 'Suporte', lastContact: '2024-01-11', messageCount: 8, status: 'no_response', attemptedContacts: 15 }
-    ],
-    status: 'active'
-  }
-];
+// ✅ REMOVIDO: Interfaces e dados mockados antigos
+// Agora usando dados reais da API via useLeads hook
 
 const Leads = () => {
   const { 
     tags, 
     loading: tagsLoading, 
     error: tagsError, 
-    retryCount,
+    retryCount: tagsRetryCount,
     refreshTags,
-    getStats,
-    testApiEndpoint
+    getStats: getTagsStats
   } = useTags();
+  
+  // ✅ NOVO: Hook para leads reais da API
+  const {
+    leads,
+    loading: leadsLoading,
+    error: leadsError,
+    retryCount: leadsRetryCount,
+    refreshLeads,
+    importLeads,
+    getStats: getLeadsStats,
+    filterLeadsByTags,
+    searchLeads
+  } = useLeads();
+  
   const navigate = useNavigate();
   
   // Debug logs com estatísticas
   console.log('🔍 Leads component - tags:', tags);
   console.log('🔍 Leads component - tagsLoading:', tagsLoading);
   console.log('🔍 Leads component - tagsError:', tagsError);
-  console.log('🔍 Leads component - retryCount:', retryCount);
-  console.log('📊 Estatísticas das tags:', getStats());
+  console.log('🔍 Leads component - tagsRetryCount:', tagsRetryCount);
+  console.log('📊 Estatísticas das tags:', getTagsStats());
+  console.log('🔍 Leads component - leads:', leads);
+  console.log('🔍 Leads component - leadsLoading:', leadsLoading);
+  console.log('🔍 Leads component - leadsError:', leadsError);
+  console.log('🔍 Leads component - leadsRetryCount:', leadsRetryCount);
+  console.log('📊 Estatísticas dos leads:', getLeadsStats());
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTag, setFilterTag] = useState('all');
-  const [filterAccount, setFilterAccount] = useState('all');
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(100);
-  const [allLeads, setAllLeads] = useState(mockLeads);
   const [selectedFolder, setSelectedFolder] = useState('all');
-  const [isExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(true);
 
-  // Simular milhões de leads para demonstração
-  const [totalLeadsCount] = useState(5247891); // 5+ milhões
+  // ✅ NOVO: Usar leads reais da API
+  const totalLeadsCount = leads.length;
 
+  // ✅ NOVO: Filtrar leads baseado em busca e filtros
   const filteredLeads = useMemo(() => {
-    let leads = allLeads.filter(lead => {
-      const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           lead.phone.includes(searchTerm);
-      const matchesTag = filterTag === 'all' || lead.tags.includes(filterTag);
-      const matchesAccount = filterAccount === 'all' || 
-                            lead.whatsappInteractions.some(interaction => interaction.accountName === filterAccount);
-      const matchesFolder = selectedFolder === 'all' || lead.tags.includes(selectedFolder);
-      
-      return matchesSearch && matchesTag && matchesAccount && matchesFolder;
-    });
+    let filtered = leads;
+
+    // Aplicar filtro de busca
+    if (searchTerm) {
+      filtered = searchLeads(searchTerm);
+    }
+
+    // Aplicar filtro de tag
+    if (filterTag !== 'all') {
+      filtered = filterLeadsByTags([filterTag]);
+    }
+
+    // Aplicar filtro de pasta (tag)
+    if (selectedFolder !== 'all') {
+      filtered = filterLeadsByTags([selectedFolder]);
+    }
 
     // Paginação eficiente
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return leads.slice(startIndex, endIndex);
-  }, [allLeads, searchTerm, filterTag, filterAccount, selectedFolder, currentPage, itemsPerPage]);
+    return filtered.slice(startIndex, endIndex);
+  }, [leads, searchTerm, filterTag, selectedFolder, currentPage, itemsPerPage, searchLeads, filterLeadsByTags]);
 
+  // ✅ NOVO: Contar leads filtrados
   const totalFilteredCount = useMemo(() => {
-    return allLeads.filter(lead => {
-      const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           lead.phone.includes(searchTerm);
-      const matchesTag = filterTag === 'all' || lead.tags.includes(filterTag);
-      const matchesAccount = filterAccount === 'all' || 
-                            lead.whatsappInteractions.some(interaction => interaction.accountName === filterAccount);
-      const matchesFolder = selectedFolder === 'all' || lead.tags.includes(selectedFolder);
-      
-      return matchesSearch && matchesTag && matchesAccount && matchesFolder;
-    }).length;
-  }, [allLeads, searchTerm, filterTag, filterAccount, selectedFolder]);
+    let filtered = leads;
 
-  // Usar tags reais para as pastas em vez de dados mockados
+    if (searchTerm) {
+      filtered = searchLeads(searchTerm);
+    }
+
+    if (filterTag !== 'all') {
+      filtered = filterLeadsByTags([filterTag]);
+    }
+
+    if (selectedFolder !== 'all') {
+      filtered = filterLeadsByTags([selectedFolder]);
+    }
+
+    return filtered.length;
+  }, [leads, searchTerm, filterTag, selectedFolder, searchLeads, filterLeadsByTags]);
+
+  // ✅ NOVO: Usar tags reais para as pastas com contagem real dos leads
   const folders = useMemo(() => {
-    console.log('🔄 Calculando folders com tags reais...');
+    console.log('🔄 Calculando folders com tags reais e contagem de leads...');
     
     if (!Array.isArray(tags) || tags.length === 0) {
       console.log('📭 Sem tags reais, usando fallback');
       return [
-        { name: 'all', count: allLeads.length, label: 'Todas' }
+        { name: 'all', count: leads.length, label: 'Todas' }
       ];
     }
     
-    // Criar pastas baseadas nas tags reais
-    const realTagFolders = tags.map(tag => ({
-      name: tag.nome,
-      count: 0, // Por enquanto 0, será implementado quando tivermos endpoint de contagem
-      label: tag.nome
-    }));
+    // ✅ NOVO: Criar pastas baseadas nas tags reais com contagem real
+    const realTagFolders = tags.map(tag => {
+      const count = filterLeadsByTags([tag.nome]).length;
+      return {
+        name: tag.nome,
+        count,
+        label: tag.nome
+      };
+    });
     
-    console.log('✅ Pastas criadas com tags reais:', realTagFolders);
+    console.log('✅ Pastas criadas com tags reais e contagem:', realTagFolders);
     
     return [
-      { name: 'all', count: allLeads.length, label: 'Todas' },
+      { name: 'all', count: leads.length, label: 'Todas' },
       ...realTagFolders
     ];
-  }, [tags, allLeads]);
+  }, [tags, leads, filterLeadsByTags]);
 
   // Usar tags reais para o filtro
   const availableTags = useMemo(() => {
@@ -189,107 +163,85 @@ const Leads = () => {
     return tagNames;
   }, [tags]);
 
-  const handleImport = (newLeads: any[]) => {
-    setAllLeads(prev => [...prev, ...newLeads]);
+  // ✅ NOVO: Importar leads via API real
+  const handleImport = async (newLeads: any[]) => {
+    console.log('🔄 Importando leads via API...');
+    
+    // Converter para formato da API
+    const apiLeads = newLeads.map(lead => ({
+      nome: lead.name || lead.nome,
+      telefone: lead.phone || lead.telefone,
+      email: lead.email || '',
+      ultima_interacao: lead.lastContact || new Date().toISOString(),
+      id_tag: Array.isArray(lead.tags) ? lead.tags.join(', ') : lead.tags || ''
+    }));
+    
+    const success = await importLeads(apiLeads);
+    
+    if (success) {
+      console.log('✅ Leads importados com sucesso via API');
+    } else {
+      console.error('❌ Falha na importação via API');
+    }
   };
 
   const handleExport = () => {
     // Lógica de exportação já implementada no componente
   };
 
-  const renderLeadCard = (lead: Lead, index: number) => (
+  // ✅ NOVO: Renderizar cards de leads com dados reais da API
+  const renderLeadCard = (lead: ApiLead, index: number) => (
     <Card key={lead.id} className="bg-card/80 backdrop-blur-sm border-cyber-border hover:border-cyber-green transition-all duration-300 hover:shadow-lg hover:shadow-cyber-green/10">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-lg text-foreground">{lead.name}</CardTitle>
+            <CardTitle className="text-lg text-foreground">{lead.nome}</CardTitle>
             <div className="flex items-center text-sm text-muted-foreground mt-1">
               <Phone className="h-3 w-3 mr-1" />
-              {lead.phone}
+              {lead.telefone}
             </div>
           </div>
-          <Badge className={getStatusColor(lead.status)}>
-            {lead.status === 'active' ? 'Ativo' : lead.status === 'inactive' ? 'Inativo' : 'Bloqueado'}
+          <Badge className="bg-cyber-green/20 text-cyber-green border-cyber-green/30">
+            Ativo
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div>
-          <p className="text-sm text-muted-foreground mb-2">Interações WhatsApp:</p>
-          <div className="space-y-2">
-            {lead.whatsappInteractions.map((interaction, idx) => (
-              <div key={idx} className="p-3 bg-muted/30 rounded-lg border">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <p className="text-sm font-medium text-primary">{interaction.accountName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {interaction.messageCount} mensagens • {interaction.attemptedContacts} tentativas
-                    </p>
-                  </div>
-                  <Badge className={getInteractionStatusColor(interaction.status)} variant="secondary">
-                    {getInteractionStatusText(interaction.status)}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Último contato: {new Date(interaction.lastContact).toLocaleDateString('pt-BR')}
-                </p>
-                {interaction.status === 'no_response' && (
-                  <p className="text-xs text-warning-foreground mt-1">
-                    ⚠️ {interaction.attemptedContacts - interaction.messageCount} mensagens sem resposta
-                  </p>
-                )}
-                {interaction.status === 'failed' && (
-                  <p className="text-xs text-destructive mt-1">
-                    ❌ {interaction.attemptedContacts - interaction.messageCount} tentativas falharam
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+        <div className="flex items-center gap-2">
+          <Mail className="h-4 w-4 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">{lead.email || 'Sem email'}</p>
         </div>
+        
         <div>
           <p className="text-sm text-muted-foreground mb-2">Tags:</p>
           <div className="flex flex-wrap gap-1">
-            {lead.tags.map((tag) => (
+            {lead.id_tag ? lead.id_tag.split(',').map(tag => tag.trim()).filter(tag => tag).map(tag => (
               <Badge key={tag} variant="secondary" className="text-xs bg-cyber-surface text-cyber-green border-cyber-border">
                 <Tag className="h-3 w-3 mr-1" />
                 {tag}
               </Badge>
-            ))}
+            )) : (
+              <Badge variant="secondary" className="text-xs text-muted-foreground">
+                Sem tags
+              </Badge>
+            )}
           </div>
+        </div>
+        
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Calendar className="h-4 w-4" />
+          <span>Última interação: {lead.ultima_interacao}</span>
+        </div>
+        
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Calendar className="h-4 w-4" />
+          <span>Criado em: {lead.criado_em}</span>
         </div>
       </CardContent>
     </Card>
   );
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-cyber-green/20 text-cyber-green border-cyber-green/30';
-      case 'inactive': return 'bg-muted text-muted-foreground border-border';
-      case 'blocked': return 'bg-destructive/20 text-destructive border-destructive/30';
-      default: return 'bg-muted text-muted-foreground border-border';
-    }
-  };
-
-  const getInteractionStatusColor = (status: string) => {
-    switch (status) {
-      case 'read': return 'bg-cyber-green/20 text-cyber-green';
-      case 'delivered': return 'bg-cyber-blue/20 text-cyber-blue';
-      case 'failed': return 'bg-destructive/20 text-destructive';
-      case 'no_response': return 'bg-warning/20 text-warning-foreground';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getInteractionStatusText = (status: string) => {
-    switch (status) {
-      case 'read': return 'Lida';
-      case 'delivered': return 'Entregue';
-      case 'failed': return 'Falhou';
-      case 'no_response': return 'Sem resposta';
-      default: return 'Desconhecido';
-    }
-  };
+  // ✅ REMOVIDO: Funções auxiliares não mais necessárias
 
   return (
     <div className="min-h-screen relative">
@@ -382,14 +334,7 @@ const Leads = () => {
                     Atualizar Tags
                   </Button>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={testApiEndpoint}
-                    className="border-cyber-border hover:border-cyber-green"
-                  >
-                    🧪 Testar API
-                  </Button>
+
                 </div>
               </div>
             </CardContent>
@@ -438,7 +383,7 @@ const Leads = () => {
                        className="justify-start"
                      >
                        <FolderOpen className="h-3 w-3 mr-2" />
-                       Todas ({allLeads.length})
+                       Todas ({leads.length})
                      </Button>
                      
                      {tagsLoading ? (
@@ -520,9 +465,9 @@ const Leads = () => {
                                        {tagsError && (
                       <div className="space-y-1">
                         <p className="text-xs text-red-500">Erro: {tagsError}</p>
-                        {retryCount > 0 && (
+                        {tagsRetryCount > 0 && (
                           <p className="text-xs text-orange-500">
-                            Tentativas: {retryCount + 1}
+                            Tentativas: {tagsRetryCount + 1}
                           </p>
                         )}
                         <div className="flex gap-2">
@@ -534,63 +479,77 @@ const Leads = () => {
                           >
                             🔄 Refresh
                           </Button>
+
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* ✅ NOVO: Status dos Leads */}
+                    {leadsError && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-red-500">Erro nos Leads: {leadsError}</p>
+                        {leadsRetryCount > 0 && (
+                          <p className="text-xs text-orange-500">
+                            Tentativas: {leadsRetryCount + 1}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={testApiEndpoint}
+                            onClick={refreshLeads}
                             className="text-xs h-6"
                           >
-                            🧪 Testar API
+                            🔄 Refresh Leads
                           </Button>
                         </div>
                       </div>
                     )}
                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Conta WhatsApp</label>
-                    <Select value={filterAccount} onValueChange={setFilterAccount}>
-                      <SelectTrigger className="bg-muted/50 border-cyber-border focus:border-cyber-green">
-                        <SelectValue placeholder="Selecione uma conta" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas as contas</SelectItem>
-                        <SelectItem value="Conta Principal">Conta Principal</SelectItem>
-                        <SelectItem value="Vendas">Vendas</SelectItem>
-                        <SelectItem value="Suporte">Suporte</SelectItem>
-                        <SelectItem value="Marketing">Marketing</SelectItem>
-                        <SelectItem value="Comercial">Comercial</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ✅ NOVO: Status de Loading dos Leads */}
+          {leadsLoading && (
+            <Card className="bg-card/80 backdrop-blur-sm border-cyber-border">
+              <CardContent className="text-center py-12">
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <p className="text-muted-foreground">Carregando leads da API...</p>
                 </div>
               </CardContent>
             </Card>
           )}
 
           {/* Leads List - Virtualizado para performance */}
-          <div className="space-y-4">
-            <VirtualizedList
-              items={filteredLeads}
-              renderItem={renderLeadCard}
-              itemHeight={320}
-              containerHeight={600}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-card/30 backdrop-blur-sm border-cyber-border rounded-lg"
-            />
+          {!leadsLoading && (
+            <div className="space-y-4">
+              <VirtualizedList
+                items={filteredLeads}
+                renderItem={renderLeadCard}
+                itemHeight={320}
+                containerHeight={600}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-card/30 backdrop-blur-sm border-cyber-border rounded-lg"
+              />
 
-            {/* Paginação */}
-            <LeadsPagination
-              currentPage={currentPage}
-              totalItems={totalFilteredCount}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={(newSize) => {
-                setItemsPerPage(newSize);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
+              {/* Paginação */}
+              <LeadsPagination
+                currentPage={currentPage}
+                totalItems={totalFilteredCount}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(newSize) => {
+                  setItemsPerPage(newSize);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+          )}
 
-          {filteredLeads.length === 0 && (
+          {!leadsLoading && filteredLeads.length === 0 && (
             <Card className="bg-card/80 backdrop-blur-sm border-cyber-border">
               <CardContent className="text-center py-12">
                 <p className="text-muted-foreground">Nenhum lead encontrado com os filtros aplicados.</p>
