@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getSavedAuthData } from '@/config/auth';
+import { mockLeads } from '@/config/mockData';
 
 export interface Lead {
   id: string;
@@ -95,6 +97,32 @@ export const useLeads = (): UseLeadsReturn => {
     try {
       setLoading(true);
       setError(null);
+      
+      // ✅ VERIFICAR MODO DEMO
+      const authData = getSavedAuthData();
+      if (authData?.isDemoMode) {
+        console.log('🎭 MODO DEMO ATIVADO - Usando leads mockados');
+        // Simular delay de rede
+        await new Promise(resolve => setTimeout(resolve, 400));
+        
+        // Converter mockLeads para formato da API
+        const demoLeads: Lead[] = mockLeads.map(lead => ({
+          id: lead.id,
+          nome: lead.name,
+          telefone: lead.phone,
+          email: lead.email,
+          ultima_interacao: lead.lastContact || lead.createdAt,
+          criado_em: lead.createdAt,
+          atualizado_em: lead.createdAt,
+          id_tag: lead.tags.join(', ')
+        }));
+        
+        setLeads(demoLeads);
+        setRetryCount(0);
+        setLoading(false);
+        console.log(`✅ DEMO: ${demoLeads.length} leads mockados carregados`);
+        return;
+      }
       
       console.log('🔄 Buscando leads da API...');
       const response = await fetch(`${BASE_URL}/ler_todas_os_leads`);
