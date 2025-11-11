@@ -20,27 +20,7 @@ import { useTags } from '@/hooks/useTags';
 import { useAccounts } from '@/hooks/useAccounts';
 import { SequenceManager } from './SequenceManager';
 import { useToast } from '@/hooks/use-toast';
-
-interface Campaign {
-  id: string;
-  name: string;
-  schedules: Array<{
-    date: string;
-    time: string;
-  }>;
-  status: 'scheduled' | 'sending' | 'completed' | 'cancelled';
-  targetCount: number;
-  sentCount: number;
-  selectedAccounts: string[];
-  selectedTags: string[];
-  // ✅ REMOVIDO: Exceções individuais - funcionalidade desabilitada
-  // ✅ REMOVIDO: Tags de leads para excluir - funcionalidade desabilitada
-  sequences: MediaSequence[]; // Substitui mediaItems por sequences
-  delayMin: number;
-  delayMax: number;
-  useTemplate?: boolean;
-  templateName?: string;
-}
+import { Campaign } from '@/hooks/useCampaigns';
 
 // ✅ REMOVIDO: Interface MediaItem duplicada - agora importada do MediaSequenceManager
 
@@ -606,13 +586,17 @@ export const CampaignWizard = ({ onSave, onCancel, templates = [] }: CampaignWiz
         sentCount: 0,
         selectedAccounts,
         selectedTags,
-        // ✅ REMOVIDO: Exceções desabilitadas
-        // ✅ REMOVIDO: Exceções por tags desabilitadas
         sequences,
+        mediaTypes: sequences.map(s => s.items.map(i => i.type)).flat(),
+        excludedContacts: '',
+        mediaItems: sequences.map(s => s.items).flat(),
+        randomizeMedia: false,
+        maxLeads: totalContacts,
         delayMin,
         delayMax,
         useTemplate: saveAsTemplate,
-        templateName: saveAsTemplate ? templateName : undefined
+        templateName: saveAsTemplate ? templateName : undefined,
+        createdAt: new Date().toISOString()
       };
       
       campaignsToSave.push(campaign);

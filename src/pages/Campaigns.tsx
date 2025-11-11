@@ -65,7 +65,7 @@ const mockAccounts = [
 const Campaigns = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { tags, loading: tagsLoading, error: tagsError, refreshTags, testApiEndpoint } = useTags();
+  const { tags, loading: tagsLoading, error: tagsError, refreshTags } = useTags();
   const [campaigns, setCampaigns] = useState(mockCampaigns);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   
@@ -300,30 +300,19 @@ const Campaigns = () => {
 
                    {/* Target Selection */}
                    <div className="space-y-4">
-                     <div className="flex items-center justify-between">
-                       <Label>Público-alvo (Tags)</Label>
-                       <div className="flex gap-2">
-                         <Button
-                           type="button"
-                           size="sm"
-                           variant="outline"
-                           onClick={refreshTags}
-                           disabled={tagsLoading}
-                           className="border-cyber-border hover:border-cyber-green text-xs"
-                         >
-                           {tagsLoading ? '⏳' : '🔄'} Refresh Tags
-                         </Button>
-                         <Button
-                           type="button"
-                           size="sm"
-                           variant="outline"
-                           onClick={testApiEndpoint}
-                           className="border-cyber-border hover:border-cyber-green text-xs"
-                         >
-                           🧪 Testar API
-                         </Button>
-                       </div>
-                     </div>
+                      <div className="flex items-center justify-between">
+                        <Label>Público-alvo (Tags)</Label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={refreshTags}
+                          disabled={tagsLoading}
+                          className="border-cyber-border hover:border-cyber-green text-xs"
+                        >
+                          {tagsLoading ? '⏳' : '🔄'} Refresh Tags
+                        </Button>
+                      </div>
                      
                      {tagsLoading ? (
                        <div className="text-center py-4">
@@ -604,18 +593,9 @@ const Campaigns = () => {
                      ) : (
                        '🔄'
                      )}
-                     Atualizar Tags
-                   </Button>
-                   
-                   <Button
-                     variant="outline"
-                     size="sm"
-                     onClick={testApiEndpoint}
-                     className="border-cyber-border hover:border-cyber-green"
-                   >
-                     🧪 Testar API
-                   </Button>
-                 </div>
+                      Atualizar Tags
+                    </Button>
+                  </div>
                </div>
              </CardContent>
            </Card>

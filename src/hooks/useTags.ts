@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { getSavedAuthData } from '@/config/auth';
+import { mockTags } from '@/config/mockData';
 
 export interface Tag {
   row_number: number;
@@ -124,6 +126,19 @@ export const useTags = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // ✅ VERIFICAR MODO DEMO
+      const authData = getSavedAuthData();
+      if (authData?.isDemoMode) {
+        console.log('🎭 MODO DEMO ATIVADO - Usando tags mockadas');
+        // Simular delay de rede
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setTags(mockTags);
+        setLastFetchTime(Date.now());
+        setLoading(false);
+        console.log(`✅ DEMO: ${mockTags.length} tags mockadas carregadas`);
+        return;
+      }
       
       console.log('🔄 Buscando tags da API...', { forceRefresh, url: BASE_URL });
       

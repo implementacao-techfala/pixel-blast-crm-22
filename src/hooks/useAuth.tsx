@@ -1,11 +1,12 @@
 import { useState, useEffect, createContext, useContext } from 'react';
-import { validateCredentials, saveAuthData, getSavedAuthData, clearAuthData, AUTH_CONFIG } from '@/config/auth';
+import { validateCredentials, saveAuthData, getSavedAuthData, clearAuthData, AUTH_CONFIG, isDemoUser } from '@/config/auth';
 
 // ✅ INTERFACE: Dados de autenticação
 interface AuthData {
   email: string;
   isAuthenticated: boolean;
   rememberMe: boolean;
+  isDemoMode: boolean; // ✅ NOVO: Indica se está em modo DEMO
 }
 
 // ✅ INTERFACE: Contexto de autenticação
@@ -33,7 +34,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authData, setAuthData] = useState<AuthData>({
     email: '',
     isAuthenticated: false,
-    rememberMe: false
+    rememberMe: false,
+    isDemoMode: false
   });
 
   // ✅ NOVO: Verificar autenticação na inicialização
@@ -43,7 +45,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthData({
         email: savedData.email,
         isAuthenticated: true,
-        rememberMe: savedData.rememberMe
+        rememberMe: savedData.rememberMe,
+        isDemoMode: savedData.isDemoMode
       });
     }
   }, []);
@@ -71,10 +74,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Atualizar estado
         console.log('🔄 Atualizando estado de autenticação...');
+        const demoMode = isDemoUser(email);
+        console.log('🎭 Modo DEMO:', demoMode);
+        
         setAuthData({
           email,
           isAuthenticated: true,
-          rememberMe
+          rememberMe,
+          isDemoMode: demoMode
         });
         
         console.log('✅ Estado atualizado, retornando true');
@@ -100,7 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthData({
       email: '',
       isAuthenticated: false,
-      rememberMe: false
+      rememberMe: false,
+      isDemoMode: false
     });
   };
 
@@ -125,7 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...prev,
         isAuthenticated: true,
         email: savedData.email,
-        rememberMe: savedData.rememberMe
+        rememberMe: savedData.rememberMe,
+        isDemoMode: savedData.isDemoMode
       }));
       return true;
     }

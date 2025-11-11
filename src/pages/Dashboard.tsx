@@ -77,7 +77,14 @@ const Dashboard = () => {
         <div className="absolute top-4 right-4 flex items-center space-x-4">
           <div className="text-right text-sm text-muted-foreground">
             <p>Logado como:</p>
-            <p className="font-medium text-cyber-purple">{authData.email}</p>
+            <p className="font-medium text-cyber-purple">
+              {authData.email}
+              {authData.isDemoMode && (
+                <span className="ml-2 px-2 py-0.5 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded text-xs border border-yellow-500/30">
+                  🎭 DEMO
+                </span>
+              )}
+            </p>
           </div>
           <Button
             variant="outline"

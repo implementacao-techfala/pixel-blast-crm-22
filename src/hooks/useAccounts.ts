@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { getSavedAuthData } from '@/config/auth';
+import { mockAccounts } from '@/config/mockData';
 
 export interface WhatsAppAccount {
   row_number: number;
@@ -132,6 +134,19 @@ export const useAccounts = () => {
     console.log('🔄 fetchAccounts chamada com forceRefresh:', forceRefresh);
     
     try {
+      // ✅ VERIFICAR MODO DEMO
+      const authData = getSavedAuthData();
+      if (authData?.isDemoMode) {
+        console.log('🎭 MODO DEMO ATIVADO - Usando dados mockados');
+        setLoading(true);
+        // Simular delay de rede
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setAccounts(mockAccounts);
+        setLastFetchTime(Date.now());
+        setLoading(false);
+        console.log(`✅ DEMO: ${mockAccounts.length} contas mockadas carregadas`);
+        return;
+      }
       // Verificar se já está carregando
       if (loading && !forceRefresh) {
         console.log('⏳ Já está carregando, aguardando...');
@@ -290,7 +305,9 @@ export const useAccounts = () => {
 
   // Função para buscar conta por nome
   const getAccountByName = (nome: string): WhatsAppAccount | undefined => {
-    return accounts.find(account => account.nome_conta.toLowerCase() === nome.toLowerCase());
+    return accounts.find(account => 
+      String(account.nome_conta).toLowerCase() === nome.toLowerCase()
+    );
   };
 
   // Função para buscar conta por telefone

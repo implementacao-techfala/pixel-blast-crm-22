@@ -4,32 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge';
 import { Edit, Save, X } from 'lucide-react';
 import { CampaignWizard } from './CampaignWizard';
-
-interface Campaign {
-  id: string;
-  name: string;
-  schedules: Array<{
-    date: string;
-    time: string;
-  }>;
-  status: 'scheduled' | 'sending' | 'completed' | 'cancelled';
-  targetCount: number;
-  sentCount: number;
-  mediaTypes: string[];
-  selectedAccounts: string[];
-  selectedTags: string[];
-  excludedContacts: string;
-  mediaItems: any[];
-  randomizeMedia: boolean;
-  maxLeads: number;
-  delayMin: number;
-  delayMax: number;
-  useTemplate?: boolean;
-  templateName?: string;
-  createdAt: string;
-  deliveryRate?: number;
-  openRate?: number;
-}
+import { Campaign } from '@/hooks/useCampaigns';
 
 interface CampaignEditorProps {
   campaign: Campaign;

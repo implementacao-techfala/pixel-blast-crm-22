@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { getSavedAuthData } from '@/config/auth';
+import { mockCampaigns } from '@/config/mockData';
 
 export interface Campaign {
   id: string;
@@ -15,6 +17,7 @@ export interface Campaign {
   selectedTags: string[];
   excludedContacts: string;
   mediaItems: any[];
+  sequences?: any[]; // Para compatibilidade com CampaignWizard
   randomizeMedia: boolean;
   maxLeads: number;
   delayMin: number;
@@ -36,6 +39,18 @@ export const useCampaigns = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // ✅ VERIFICAR MODO DEMO
+      const authData = getSavedAuthData();
+      if (authData?.isDemoMode) {
+        console.log('🎭 MODO DEMO ATIVADO - Usando campanhas mockadas');
+        // Simular delay de rede
+        await new Promise(resolve => setTimeout(resolve, 400));
+        setCampaigns(mockCampaigns);
+        setLoading(false);
+        console.log(`✅ DEMO: ${mockCampaigns.length} campanhas mockadas carregadas`);
+        return;
+      }
       
       console.log('🔄 Buscando campanhas da API...');
       

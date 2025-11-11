@@ -2,8 +2,16 @@
 export const AUTH_CONFIG = {
   // Credenciais fixas para acesso ao sistema
   CREDENTIALS: {
-    email: 'luis.melo@techfala365.com.br',
-    password: 'senha123'
+    // Credencial REAL - acessa API real
+    REAL: {
+      email: 'luis.melo@techfala365.com.br',
+      password: 'senha123'
+    },
+    // Credencial DEMO - usa dados mockados
+    DEMO: {
+      email: 'demo@techfala365.com.br',
+      password: 'demo123'
+    }
   },
   
   // Configurações de autenticação
@@ -22,21 +30,26 @@ export const AUTH_CONFIG = {
 // ✅ FUNÇÃO: Verificar se as credenciais são válidas
 export const validateCredentials = (email: string, password: string): boolean => {
   console.log('🔍 Validando credenciais...');
-  console.log('🔍 Email esperado:', AUTH_CONFIG.CREDENTIALS.email);
   console.log('🔍 Email recebido:', email);
-  console.log('🔍 Senha esperada:', AUTH_CONFIG.CREDENTIALS.password);
-  console.log('🔍 Senha recebida:', password);
   
-  const emailMatch = email === AUTH_CONFIG.CREDENTIALS.email;
-  const passwordMatch = password === AUTH_CONFIG.CREDENTIALS.password;
+  // Verificar credencial REAL
+  const isRealUser = email === AUTH_CONFIG.CREDENTIALS.REAL.email && 
+                     password === AUTH_CONFIG.CREDENTIALS.REAL.password;
   
-  console.log('🔍 Email coincide:', emailMatch);
-  console.log('🔍 Senha coincide:', passwordMatch);
+  // Verificar credencial DEMO
+  const isDemoUser = email === AUTH_CONFIG.CREDENTIALS.DEMO.email && 
+                     password === AUTH_CONFIG.CREDENTIALS.DEMO.password;
   
-  const result = emailMatch && passwordMatch;
-  console.log('🔍 Resultado final:', result);
+  const result = isRealUser || isDemoUser;
+  console.log('🔍 Resultado:', result ? '✅ VÁLIDO' : '❌ INVÁLIDO');
+  console.log('🔍 Tipo:', isRealUser ? 'REAL' : isDemoUser ? 'DEMO' : 'NENHUM');
   
   return result;
+};
+
+// ✅ FUNÇÃO: Verificar se é usuário DEMO
+export const isDemoUser = (email: string): boolean => {
+  return email === AUTH_CONFIG.CREDENTIALS.DEMO.email;
 };
 
 // ✅ FUNÇÃO: Salvar dados de autenticação
@@ -44,14 +57,15 @@ export const saveAuthData = (email: string, rememberMe: boolean): void => {
   const authData = {
     email,
     rememberMe,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    isDemoMode: isDemoUser(email)
   };
   
   localStorage.setItem(AUTH_CONFIG.SETTINGS.storageKey, JSON.stringify(authData));
 };
 
 // ✅ FUNÇÃO: Verificar se há dados de autenticação salvos
-export const getSavedAuthData = (): { email: string; rememberMe: boolean } | null => {
+export const getSavedAuthData = (): { email: string; rememberMe: boolean; isDemoMode: boolean } | null => {
   try {
     const saved = localStorage.getItem(AUTH_CONFIG.SETTINGS.storageKey);
     if (!saved) return null;
@@ -67,7 +81,8 @@ export const getSavedAuthData = (): { email: string; rememberMe: boolean } | nul
     
     return {
       email: authData.email,
-      rememberMe: authData.rememberMe
+      rememberMe: authData.rememberMe,
+      isDemoMode: authData.isDemoMode || isDemoUser(authData.email)
     };
   } catch (error) {
     console.error('Erro ao recuperar dados de autenticação:', error);
